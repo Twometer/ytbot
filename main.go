@@ -1,7 +1,11 @@
 package main
 
-import "log"
+import (
+	"log"
+	"ytbot/ytdlp"
+)
 
 func main() {
-	log.Println("Starting YTBot")
+	log.Println(">> Starting YTBot <<")
+	ytdlp.EnsurePresent()
 }
