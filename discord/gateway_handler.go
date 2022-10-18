@@ -31,6 +31,7 @@ func (client *Client) handleEvent(in WsMessageIn) {
 
 		voiceStateMap := make(map[string]VoiceState)
 		for _, state := range message.VoiceStates {
+			state.GuildId = message.Id
 			voiceStateMap[state.UserId] = state
 		}
 
@@ -51,6 +52,11 @@ func (client *Client) handleEvent(in WsMessageIn) {
 		if message.Content[0] == client.cmdPrefix {
 			client.Commands <- NewCommandBuffer(message)
 		}
+	case GatewayEventVoiceServerUpdate:
+		var voiceServer VoiceServer
+		in.Unmarshal(&voiceServer)
+
+		client.VoiceServers <- voiceServer
 	default:
 		log.Println("Unhandled event:", in.String())
 	}

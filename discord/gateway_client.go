@@ -21,16 +21,18 @@ type Client struct {
 	cmdPrefix byte
 	heartbeat *time.Ticker
 
-	Guilds   map[string]GuildState
-	Commands chan CommandBuffer
+	Guilds       map[string]GuildState
+	Commands     chan CommandBuffer
+	VoiceServers chan VoiceServer
 }
 
 func NewClient(token string, commandPrefix byte) *Client {
 	return &Client{
-		authToken: "Bot " + token,
-		Guilds:    make(map[string]GuildState),
-		cmdPrefix: commandPrefix,
-		Commands:  make(chan CommandBuffer, 25),
+		authToken:    "Bot " + token,
+		Guilds:       make(map[string]GuildState),
+		cmdPrefix:    commandPrefix,
+		Commands:     make(chan CommandBuffer, 25),
+		VoiceServers: make(chan VoiceServer),
 	}
 }
 
@@ -66,7 +68,7 @@ func (client *Client) ReplyMessage(message Message, content string) {
 }
 
 func (client *Client) EditMessage(message Message, newContent string) {
-
+	panic("todo")
 }
 
 func (client *Client) SendMessage(channel string, content string) Message {
@@ -92,6 +94,29 @@ func (client *Client) sendMessage(opcode GatewayOp, data interface{}) error {
 		Opcode: opcode,
 		Data:   data,
 	})
+}
+
+func (client *Client) JoinVoiceChannel(state VoiceState) error {
+	log.Printf("Joining %s, %s", state.ChannelId, state.GuildId)
+
+	err := client.sendMessage(GatewayOpVoiceStateUpdate, VoiceState{
+		ChannelId: state.ChannelId,
+		GuildId:   state.GuildId,
+		SelfVideo: false,
+		SelfMute:  false,
+		SelfDeaf:  true,
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Println("Waiting for voice server...")
+	voiceServer := <-client.VoiceServers
+	log.Println("Joining voice server", voiceServer.Endpoint)
+
+	// TODO
+
+	return nil
 }
 
 func (client *Client) sendIdentify() error {

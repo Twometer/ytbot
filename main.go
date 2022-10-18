@@ -37,6 +37,13 @@ func main() {
 		log.Printf("Handling command %s", name)
 		if name == "ping" {
 			discordClient.ReplyMessage(cmd.Message, "Pong!")
+		} else if name == "join" {
+			voiceState, ok := discordClient.Guilds[cmd.Message.GuildId].VoiceStates[cmd.Message.Author.Id]
+			if ok {
+				discordClient.JoinVoiceChannel(voiceState)
+			} else {
+				discordClient.ReplyMessage(cmd.Message, "You are not in a voice channel")
+			}
 		}
 	}
 }
