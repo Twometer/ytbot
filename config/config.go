@@ -20,7 +20,7 @@ func loadKey(key Key, defaultValue string) {
 		if defaultValue != "" {
 			value = defaultValue
 		} else {
-			log.Fatalf("Missing environment variable `%s`", key)
+			log.Fatalf("missing environment variable `%s`", key)
 		}
 	}
 	configValues[key] = value
@@ -37,7 +37,7 @@ func GetString(key Key) string {
 func GetInt(key Key) int {
 	val, err := strconv.Atoi(configValues[key])
 	if err != nil {
-		log.Fatalf("Failed to read int property `%s`: %s", key, err.Error())
+		log.Fatalf("failed to read int property `%s`: %s", key, err.Error())
 	}
 	return val
 }
