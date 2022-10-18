@@ -3,7 +3,7 @@ package ytdlp
 import (
 	"log"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 )
 
@@ -11,7 +11,7 @@ const baseUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/"
 const windowsFileName = "yt-dlp.exe"
 const linuxFileName = "yt-dlp"
 
-func getFileName() string {
+func getExecutableFileName() string {
 	switch runtime.GOOS {
 	case "windows":
 		return windowsFileName
@@ -23,15 +23,15 @@ func getFileName() string {
 	return ""
 }
 
-func getDownloadUrl() string {
-	return baseUrl + getFileName()
+func getExecutableUrl() string {
+	return baseUrl + getExecutableFileName()
 }
 
-func getDownloadPath() string {
+func getExecutablePath() string {
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatalln("Failed to get current working directory:", err)
 	}
 
-	return path.Join(dir, getFileName())
+	return filepath.Join(dir, getExecutableFileName())
 }
