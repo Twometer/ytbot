@@ -41,9 +41,10 @@ func main() {
 		} else if name == "join" {
 			voiceState, ok := discordClient.Guilds[cmd.Message.GuildId].VoiceStates[cmd.Message.Author.Id]
 			if ok {
-				client, err := discordClient.JoinVoiceChannel(voiceState)
+				client, err := discordClient.JoinVoiceChannel(voiceState.GuildId, voiceState.ChannelId)
 				if err != nil {
 					log.Println("Failed to join voice channel:", err)
+					continue
 				}
 
 				go func() {
@@ -62,7 +63,8 @@ func main() {
 						case discord.VoiceEventFinished:
 							log.Println("Finished playing")
 						case discord.VoiceEventError:
-							log.Println("Error while playing")
+							log.Println("Error while playing, leaving")
+							discordClient.LeaveVoiceChannel(voiceState.GuildId)
 						}
 					}
 				}()

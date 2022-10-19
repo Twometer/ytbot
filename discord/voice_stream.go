@@ -9,11 +9,7 @@ import (
 	"net"
 )
 
-const payloadType byte = 0x78
-
-const StatePlaying = 2
-const StateStopped = 3
-
+// VoiceStream represents the UDP connection that does the actual voice streaming
 type VoiceStream struct {
 	RemoteIp   string
 	RemotePort int
@@ -23,20 +19,18 @@ type VoiceStream struct {
 
 	Ssrc uint32
 
-	parent       *VoiceClient
-	conn         *net.UDPConn
-	key          []byte
-	sequence     uint16
-	StateChanges chan int
+	parent   *VoiceClient
+	conn     *net.UDPConn
+	key      []byte
+	sequence uint16
 }
 
 func NewVoiceStream(parent *VoiceClient, ip string, port int, ssrc uint32) *VoiceStream {
 	return &VoiceStream{
-		parent:       parent,
-		RemoteIp:     ip,
-		RemotePort:   port,
-		Ssrc:         ssrc,
-		StateChanges: make(chan int),
+		parent:     parent,
+		RemoteIp:   ip,
+		RemotePort: port,
+		Ssrc:       ssrc,
 	}
 }
 
@@ -74,7 +68,7 @@ func (vc *VoiceStream) SendOpusFrame(timestamp uint32, frame []byte) error {
 
 	// Discord Header
 	_ = binary.Write(packetBuffer, binary.BigEndian, uint8(0x80))
-	_ = binary.Write(packetBuffer, binary.BigEndian, payloadType)
+	_ = binary.Write(packetBuffer, binary.BigEndian, uint8(0x78))
 	_ = binary.Write(packetBuffer, binary.BigEndian, sequence)
 	_ = binary.Write(packetBuffer, binary.BigEndian, timestamp)
 	_ = binary.Write(packetBuffer, binary.BigEndian, vc.Ssrc)
@@ -165,4 +159,15 @@ func (vc *VoiceStream) discoverLocalIp() error {
 	log.Printf("IP Discovery completed: %s:%d\n", resp.ip, resp.port)
 
 	return nil
+}
+
+func (vc *VoiceStream) Close() {
+	if vc.conn == nil {
+		return
+	}
+
+	err := vc.conn.Close()
+	if err != nil {
+		log.Println("Could not gracefully shut down voice stream:", err)
+	}
 }

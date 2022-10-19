@@ -54,6 +54,8 @@ func (encoder *Encoder) Start() error {
 	encoder.sink.OnBegin()
 
 	go func() {
+		//defer log.Println("Encoder terminated")
+		defer encoder.ffmpeg.Stop()
 		for {
 			select {
 			case <-ticker.C:
@@ -71,6 +73,8 @@ func (encoder *Encoder) Start() error {
 				err = encoder.sink.SendOpusFrame(uint32(pageHeader.GranulePosition), pageData)
 				if err != nil {
 					log.Println("Failed to write audio frame:", err)
+					encoder.sink.OnFailed()
+					return
 				}
 			case <-encoder.stopChan:
 				log.Println("Audio playback stopped")

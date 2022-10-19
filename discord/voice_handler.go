@@ -20,6 +20,7 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 		err := vc.createVoiceStream(msg)
 		if err != nil {
 			log.Println("Failed to init voice stream:", err)
+			vc.Events <- VoiceEventError
 		}
 	case VoiceOpSessionDesc:
 		var msg VoiceSessionDescriptionMessage

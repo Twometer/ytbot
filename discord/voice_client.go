@@ -8,6 +8,7 @@ import (
 
 const preferredEncryptionMode = "xsalsa20_poly1305"
 
+// VoiceClient represents a WebSocket connection to the voice gateway. It manages an associated VoiceStream
 type VoiceClient struct {
 	VoiceStream *VoiceStream
 	Events      chan VoiceEvent
@@ -41,9 +42,37 @@ func (vc *VoiceClient) start() error {
 }
 
 func (vc *VoiceClient) handlerLoop() {
-	for msg := range vc.ws.MessagesIn {
-		vc.handleMessage(msg)
+	//defer log.Println("Voice handler loop terminated")
+	for {
+		select {
+		case msg := <-vc.ws.MessagesIn:
+			vc.handleMessage(msg)
+		case event := <-vc.ws.Events:
+			if event == WsEventError {
+				vc.Events <- VoiceEventError
+				return
+			}
+		}
 	}
+}
+
+func (vc *VoiceClient) createVoiceStream(msg VoiceReadyMessage) error {
+	log.Println("Connected to voice gateway, initializing voice stream...")
+
+	if !slices.Contains(msg.Modes, preferredEncryptionMode) {
+		return errors.New("remote does not support preferred encryption mode: " + preferredEncryptionMode)
+	}
+
+	stream := NewVoiceStream(vc, msg.Ip, msg.Port, msg.Ssrc)
+	err := stream.BeginSetup()
+	if err != nil {
+		return err
+	}
+	vc.VoiceStream = stream
+
+	vc.sendSelectProtocol()
+
+	return nil
 }
 
 func (vc *VoiceClient) sendIdentify() {
@@ -68,43 +97,20 @@ func (vc *VoiceClient) sendSpeaking(speaking bool) {
 	})
 }
 
-func (vc *VoiceClient) createVoiceStream(msg VoiceReadyMessage) error {
-	log.Println("Connected to voice gateway, initializing voice stream...")
-
-	if !slices.Contains(msg.Modes, preferredEncryptionMode) {
-		return errors.New("remote does not support preferred encryption mode: " + preferredEncryptionMode)
-	}
-
-	stream := NewVoiceStream(vc, msg.Ip, msg.Port, msg.Ssrc)
-	err := stream.BeginSetup()
-	if err != nil {
-		return err
-	}
-	vc.VoiceStream = stream
-
+func (vc *VoiceClient) sendSelectProtocol() {
 	vc.ws.Send(VoiceOpSelectProtocol, VoiceSelectProtocolMessage{
 		Protocol: "udp",
 		Data: ProtocolData{
-			Address: stream.LocalIp,
-			Port:    stream.LocalPort,
+			Address: vc.VoiceStream.LocalIp,
+			Port:    vc.VoiceStream.LocalPort,
 			Mode:    preferredEncryptionMode,
 		},
 	})
-
-	go func() {
-		for state := range stream.StateChanges {
-			log.Println("New Stream State:", state)
-			if state == StatePlaying {
-				vc.sendSpeaking(true)
-			} else {
-				vc.sendSpeaking(false)
-			}
-		}
-	}()
-
-	return nil
 }
 
 func (vc *VoiceClient) Close() {
 	vc.ws.Close()
+	if vc.VoiceStream != nil {
+		vc.VoiceStream.Close()
+	}
 }

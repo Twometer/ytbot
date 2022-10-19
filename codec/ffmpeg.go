@@ -2,6 +2,7 @@ package codec
 
 import (
 	"io"
+	"log"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -38,6 +39,13 @@ func (ffmpeg *Ffmpeg) Start() error {
 	ffmpeg.Stderr = stderr
 
 	return cmd.Start()
+}
+
+func (ffmpeg *Ffmpeg) Stop() {
+	err := ffmpeg.Command.Process.Kill()
+	if err != nil {
+		log.Println("Could not stop ffmpeg (already dead?):", err)
+	}
 }
 
 func (ffmpeg *Ffmpeg) buildArguments() []string {

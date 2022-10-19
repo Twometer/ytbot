@@ -82,25 +82,33 @@ func (client *Client) PostMessage(message Message) {
 	}
 }
 
-func (client *Client) JoinVoiceChannel(state VoiceState) (*VoiceClient, error) {
-	log.Printf("Joining %s, %s", state.ChannelId, state.GuildId)
+func (client *Client) JoinVoiceChannel(guildId string, channelId string) (*VoiceClient, error) {
+	// Find guild
+	guild, ok := client.Guilds[guildId]
+	if !ok {
+		return nil, errors.New("tried to join invalid guild")
+	}
 
+	// Join channel
 	client.ws.Send(GatewayOpVoiceStateUpdate, VoiceState{
-		ChannelId: state.ChannelId,
-		GuildId:   state.GuildId,
+		GuildId:   guildId,
+		ChannelId: channelId,
 		SelfVideo: false,
 		SelfMute:  false,
 		SelfDeaf:  true,
 	})
 
+	// Acquire voice server
 	log.Println("Waiting for voice gateway...")
 	voiceServer := <-client.VoiceServers
 
-	ownVoiceState, ok := client.Guilds[state.GuildId].VoiceStates[client.userId]
+	// Get own voice session
+	ownVoiceState, ok := guild.VoiceStates[client.userId]
 	if !ok {
 		return nil, errors.New("could not get own voice state")
 	}
 
+	// Create voice client
 	log.Printf("Connecting to voice gateway at `%s`...\n", voiceServer.Endpoint)
 	voiceClient := NewVoiceClient(client.userId, ownVoiceState.SessionId, voiceServer)
 	err := voiceClient.start()
@@ -108,19 +116,21 @@ func (client *Client) JoinVoiceChannel(state VoiceState) (*VoiceClient, error) {
 		return nil, err
 	}
 
-	guild := client.Guilds[state.GuildId]
+	// Save voice client to guild
 	guild.VoiceClient = voiceClient
+	client.Guilds[guildId] = guild
 
-	return guild.VoiceClient, nil
+	return voiceClient, nil
 }
 
 func (client *Client) LeaveVoiceChannel(guildId string) {
-	voiceState, ok := client.Guilds[guildId]
+	guildState, ok := client.Guilds[guildId]
 	if !ok {
+		log.Println("failed to find guild while leaving")
 		return
 	}
 
-	voiceState.VoiceClient.Close()
+	guildState.VoiceClient.Close()
 	client.ws.Send(GatewayOpVoiceStateUpdate, VoiceStateLeave{
 		GuildId: guildId,
 	})
@@ -139,6 +149,7 @@ func (client *Client) sendIdentify() {
 }
 
 func (client *Client) handlerLoop() {
+	//defer log.Println("Gateway handler loop has terminated")
 	for message := range client.ws.MessagesIn {
 		client.handleMessage(message)
 	}
