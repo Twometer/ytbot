@@ -15,8 +15,10 @@ type Encoder struct {
 }
 
 type AudioSink interface {
-	OnPlayingStateChanged(playing bool)
-
+	OnBegin()
+	OnFinished()
+	OnStopped()
+	OnFailed()
 	SendOpusFrame(timestamp uint32, frame []byte) error
 }
 
@@ -49,7 +51,7 @@ func (encoder *Encoder) Start() error {
 	}
 
 	ticker := time.NewTicker(20 * time.Millisecond)
-	encoder.sink.OnPlayingStateChanged(true)
+	encoder.sink.OnBegin()
 
 	go func() {
 		for {
@@ -58,11 +60,11 @@ func (encoder *Encoder) Start() error {
 				pageData, pageHeader, err := oggReader.ParseNextPage()
 				if err == io.EOF {
 					log.Println("Audio playback finished")
-					encoder.sink.OnPlayingStateChanged(false)
+					encoder.sink.OnFinished()
 					return
 				} else if err != nil {
 					log.Println("Audio decoder failed:", err)
-					encoder.sink.OnPlayingStateChanged(false)
+					encoder.sink.OnFailed()
 					return
 				}
 
@@ -72,7 +74,7 @@ func (encoder *Encoder) Start() error {
 				}
 			case <-encoder.stopChan:
 				log.Println("Audio playback stopped")
-				encoder.sink.OnPlayingStateChanged(false)
+				encoder.sink.OnStopped()
 				return
 			}
 		}

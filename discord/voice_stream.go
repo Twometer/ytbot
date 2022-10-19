@@ -23,14 +23,16 @@ type VoiceStream struct {
 
 	Ssrc uint32
 
+	parent       *VoiceClient
 	conn         *net.UDPConn
 	key          []byte
 	sequence     uint16
 	StateChanges chan int
 }
 
-func NewVoiceStream(ip string, port int, ssrc uint32) *VoiceStream {
+func NewVoiceStream(parent *VoiceClient, ip string, port int, ssrc uint32) *VoiceStream {
 	return &VoiceStream{
+		parent:       parent,
 		RemoteIp:     ip,
 		RemotePort:   port,
 		Ssrc:         ssrc,
@@ -86,12 +88,24 @@ func (vc *VoiceStream) SendOpusFrame(timestamp uint32, frame []byte) error {
 	return err
 }
 
-func (vc *VoiceStream) OnPlayingStateChanged(playing bool) {
-	if playing {
-		vc.StateChanges <- StatePlaying
-	} else {
-		vc.StateChanges <- StateStopped
-	}
+func (vc *VoiceStream) OnBegin() {
+	vc.parent.Events <- VoiceEventPlaying
+	vc.parent.sendSpeaking(true)
+}
+
+func (vc *VoiceStream) OnFinished() {
+	vc.parent.Events <- VoiceEventFinished
+	vc.parent.sendSpeaking(false)
+}
+
+func (vc *VoiceStream) OnStopped() {
+	vc.parent.Events <- VoiceEventStopped
+	vc.parent.sendSpeaking(false)
+}
+
+func (vc *VoiceStream) OnFailed() {
+	vc.parent.Events <- VoiceEventError
+	vc.parent.sendSpeaking(false)
 }
 
 func (vc *VoiceStream) encryptAudio(audioFrame []byte, nonceBytes []byte) []byte {

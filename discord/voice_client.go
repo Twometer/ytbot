@@ -10,11 +10,12 @@ const preferredEncryptionMode = "xsalsa20_poly1305"
 
 type VoiceClient struct {
 	VoiceStream *VoiceStream
-	ws          *WebSocket
-	userId      string
-	sessionId   string
-	server      VoiceServer
-	Ready       chan interface{}
+	Events      chan VoiceEvent
+
+	ws        *WebSocket
+	userId    string
+	sessionId string
+	server    VoiceServer
 }
 
 func NewVoiceClient(userId string, sessionId string, server VoiceServer) *VoiceClient {
@@ -22,7 +23,7 @@ func NewVoiceClient(userId string, sessionId string, server VoiceServer) *VoiceC
 		userId:    userId,
 		sessionId: sessionId,
 		server:    server,
-		Ready:     make(chan interface{}),
+		Events:    make(chan VoiceEvent, 25),
 	}
 }
 
@@ -57,7 +58,7 @@ func (vc *VoiceClient) sendIdentify() {
 func (vc *VoiceClient) sendSpeaking(speaking bool) {
 	speakingValue := 0
 	if speaking {
-		speakingValue = 5
+		speakingValue = 1
 	}
 
 	vc.ws.Send(VoiceOpSpeaking, VoiceSpeakingMessage{
@@ -67,14 +68,14 @@ func (vc *VoiceClient) sendSpeaking(speaking bool) {
 	})
 }
 
-func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
+func (vc *VoiceClient) createVoiceStream(msg VoiceReadyMessage) error {
 	log.Println("Connected to voice gateway, initializing voice stream...")
 
 	if !slices.Contains(msg.Modes, preferredEncryptionMode) {
 		return errors.New("remote does not support preferred encryption mode: " + preferredEncryptionMode)
 	}
 
-	stream := NewVoiceStream(msg.Ip, msg.Port, msg.Ssrc)
+	stream := NewVoiceStream(vc, msg.Ip, msg.Port, msg.Ssrc)
 	err := stream.BeginSetup()
 	if err != nil {
 		return err

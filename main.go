@@ -46,14 +46,27 @@ func main() {
 					log.Println("Failed to join voice channel:", err)
 				}
 
-				<-client.Ready
-				log.Println("Voice client ready")
+				go func() {
+					for event := range client.Events {
+						switch event {
+						case discord.VoiceEventReady:
+							encoder := codec.NewEncoder("https://data.twometer.de/video/crab_rave.mp4", client.VoiceStream)
+							err = encoder.Start()
+							if err != nil {
+								log.Println("Failed to start encoder:", err)
+							}
+						case discord.VoiceEventPlaying:
+							log.Println("Started playing")
+						case discord.VoiceEventStopped:
+							log.Println("Stopped playing")
+						case discord.VoiceEventFinished:
+							log.Println("Finished playing")
+						case discord.VoiceEventError:
+							log.Println("Error while playing")
+						}
+					}
+				}()
 
-				encoder := codec.NewEncoder("https://data.twometer.de/video/crab_rave.mp4", client.VoiceStream)
-				err = encoder.Start()
-				if err != nil {
-					log.Println("Failed to start encoder:", err)
-				}
 			} else {
 				discordClient.ReplyMessage(cmd.Message, "You are not in a voice channel")
 			}

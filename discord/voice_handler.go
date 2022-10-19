@@ -17,7 +17,7 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 	case VoiceOpReady:
 		var msg VoiceReadyMessage
 		message.Unmarshal(&msg)
-		err := vc.initVoiceStream(msg)
+		err := vc.createVoiceStream(msg)
 		if err != nil {
 			log.Println("Failed to init voice stream:", err)
 		}
@@ -25,7 +25,7 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 		var msg VoiceSessionDescriptionMessage
 		message.Unmarshal(&msg)
 		vc.VoiceStream.FinishSetup(msg.SecretKey)
-		vc.Ready <- true
+		vc.Events <- VoiceEventReady
 	case VoiceOpHeartbeatAck:
 	default:
 		log.Println("unhandled voice message:", message.String())

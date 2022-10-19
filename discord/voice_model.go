@@ -55,3 +55,14 @@ type VoiceSpeakingMessage struct {
 	Delay    int    `json:"delay"`
 	Ssrc     uint32 `json:"ssrc"`
 }
+
+type VoiceEvent int
+
+//goland:noinspection GoUnusedConst
+const (
+	VoiceEventReady    = 1
+	VoiceEventPlaying  = 2
+	VoiceEventFinished = 3
+	VoiceEventStopped  = 4
+	VoiceEventError    = 5
+)
