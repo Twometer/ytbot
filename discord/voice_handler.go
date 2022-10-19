@@ -14,12 +14,11 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 	case VoiceOpReady:
 		var msg VoiceReadyMessage
 		message.Unmarshal(&msg)
-		vc.startVoiceStream(msg)
+		vc.initVoiceStream(msg)
 	case VoiceOpSessionDesc:
 		var msg VoiceSessionDescriptionMessage
 		message.Unmarshal(&msg)
-
-		vc.Stream.FinishSetup(msg.SecretKey)
+		vc.VoiceStream.FinishSetup(msg.SecretKey)
 	case VoiceOpHeartbeatAck:
 	// ignore
 	default:

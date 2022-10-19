@@ -2,19 +2,23 @@ package discord
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/gorilla/websocket"
+	"golang.org/x/exp/slices"
 	"log"
 	"time"
 	"ytbot/discord/utils"
 )
 
+const preferredEncryptionMode = "xsalsa20_poly1305"
+
 type VoiceClient struct {
-	Stream    *VoiceStream
-	userId    string
-	sessionId string
-	server    VoiceServer
-	conn      *websocket.Conn
-	heartbeat *time.Ticker
+	VoiceStream *VoiceStream
+	userId      string
+	sessionId   string
+	server      VoiceServer
+	conn        *websocket.Conn
+	heartbeat   *time.Ticker
 }
 
 func NewVoiceClient(userId string, sessionId string, server VoiceServer) VoiceClient {
@@ -53,7 +57,8 @@ func (vc *VoiceClient) receiveLoop() {
 		var message WsMessageIn
 		err = json.Unmarshal(data, &message)
 		if err != nil {
-			log.Fatalln("failed to decode JSON:", err)
+			log.Println("error: failed to decode JSON:", err)
+			continue
 		}
 
 		vc.handleMessage(message)
@@ -80,25 +85,32 @@ func (vc *VoiceClient) sendMessage(opcode VoiceOp, data interface{}) error {
 	})
 }
 
-func (vc *VoiceClient) startVoiceStream(msg VoiceReadyMessage) {
-	log.Println("Connected to voice gateway, opening voice stream...")
-	vc.Stream = NewVoiceStream(msg.Ip, msg.Port, msg.Ssrc)
-	err := vc.Stream.BeginSetup()
+func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
+	log.Println("Connected to voice gateway, initializing voice stream...")
+
+	if !slices.Contains(msg.Modes, preferredEncryptionMode) {
+		return errors.New("remote does not support preferred encryption mode: " + preferredEncryptionMode)
+	}
+
+	stream := NewVoiceStream(msg.Ip, msg.Port, msg.Ssrc)
+
+	err := stream.BeginSetup()
 	if err != nil {
-		log.Println("Failed to open voice stream:", err)
-		return
+		return err
 	}
 
 	err = vc.sendMessage(VoiceOpSelectProtocol, VoiceSelectProtocolMessage{
 		Protocol: "udp",
 		Data: ProtocolData{
-			Address: vc.Stream.LocalIp,
-			Port:    vc.Stream.LocalPort,
-			Mode:    "xsalsa20_poly1305_lite",
+			Address: stream.LocalIp,
+			Port:    stream.LocalPort,
+			Mode:    preferredEncryptionMode,
 		},
 	})
 	if err != nil {
-		log.Println("Failed to select voice protocol:", err)
-		return
+		return err
 	}
+
+	vc.VoiceStream = stream
+	return nil
 }

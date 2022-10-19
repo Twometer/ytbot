@@ -37,7 +37,7 @@ func (msg *WsMessageIn) String() string {
 	if msg.Data != nil {
 		dataStr = string(*msg.Data)
 	}
-	return "op=" + strconv.Itoa(int(msg.Opcode)) + "; data=" + dataStr + "; t=" + msg.Type
+	return "op=" + strconv.Itoa(msg.Opcode) + "; data=" + dataStr + "; t=" + msg.Type
 }
 
 // String creates a string summary of the WsMessageOut
@@ -46,5 +46,5 @@ func (msg *WsMessageOut) String() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "op=" + strconv.Itoa(int(msg.Opcode)) + "; data=" + string(data), err
+	return "op=" + strconv.Itoa(msg.Opcode) + "; data=" + string(data), err
 }

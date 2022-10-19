@@ -3,6 +3,7 @@ package discord
 // GatewayOp identifies Discord gateway opcodes
 type GatewayOp = int
 
+//goland:noinspection GoUnusedConst
 const (
 	GatewayOpDispatch            = 0
 	GatewayOpHeartbeat           = 1
@@ -20,6 +21,7 @@ const (
 // GatewayEvent identifies Discord gateway event types
 type GatewayEvent = string
 
+//goland:noinspection GoUnusedConst
 const (
 	GatewayEventMessageCreate     = "MESSAGE_CREATE"
 	GatewayEventReady             = "READY"
@@ -31,6 +33,7 @@ const (
 // Intent identifies bitflags for Discord bot intents
 type Intent = int32
 
+//goland:noinspection GoUnusedConst
 const (
 	IntentGuilds                = 1 << 0
 	IntentMembers               = 1 << 1

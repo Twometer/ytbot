@@ -3,9 +3,15 @@ package discord
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"github.com/pion/rtp"
+	"golang.org/x/crypto/nacl/secretbox"
 	"log"
 	"net"
+	"ytbot/discord/utils"
 )
+
+const payloadType byte = 0x78
 
 type VoiceStream struct {
 	RemoteIp   string
@@ -14,13 +20,14 @@ type VoiceStream struct {
 	LocalIp   string
 	LocalPort int
 
-	Ssrc int
+	Ssrc uint32
 
-	conn *net.UDPConn
-	key  []byte
+	conn     *net.UDPConn
+	key      []byte
+	sequence uint16
 }
 
-func NewVoiceStream(ip string, port int, ssrc int) *VoiceStream {
+func NewVoiceStream(ip string, port int, ssrc uint32) *VoiceStream {
 	return &VoiceStream{
 		RemoteIp:   ip,
 		RemotePort: port,
@@ -39,7 +46,7 @@ func (vc *VoiceStream) BeginSetup() error {
 	}
 	vc.conn = conn
 
-	err = vc.doIpDiscovery()
+	err = vc.discoverLocalIp()
 	if err != nil {
 		return err
 	}
@@ -49,29 +56,77 @@ func (vc *VoiceStream) BeginSetup() error {
 
 func (vc *VoiceStream) FinishSetup(key []byte) {
 	vc.key = key
-	log.Println("Voice connection established!")
+	log.Println("Voice streaming connection established!")
 }
 
-func (vc *VoiceStream) SendRawFrame(frame []byte) error {
-	reqBuf := bytes.NewBuffer(make([]byte, 0))
-	binary.Write(reqBuf, binary.BigEndian, uint8(0x80))
-	binary.Write(reqBuf, binary.BigEndian, uint8(0x78))
-	binary.Write(reqBuf, binary.BigEndian, uint16(0)) // todo sequence
-	binary.Write(reqBuf, binary.BigEndian, uint32(0)) // todo timestamp
-	binary.Write(reqBuf, binary.BigEndian, uint32(vc.Ssrc))
-	reqBuf.Write(frame) // todo encryption
+func (vc *VoiceStream) SendOpusFrame(frame []byte) error {
+	if vc.key == nil {
+		return errors.New("voice stream is not initialized")
+	}
 
-	_, err := vc.conn.Write(reqBuf.Bytes())
+	sequence := vc.nextSequence()
+	timestamp := utils.Timestamp()
+	packetBuffer := bytes.NewBuffer(make([]byte, 0))
+
+	// Discord Header
+	_ = binary.Write(packetBuffer, binary.BigEndian, uint8(0x80))
+	_ = binary.Write(packetBuffer, binary.BigEndian, payloadType)
+	_ = binary.Write(packetBuffer, binary.BigEndian, sequence)
+	_ = binary.Write(packetBuffer, binary.BigEndian, timestamp)
+	_ = binary.Write(packetBuffer, binary.BigEndian, vc.Ssrc)
+
+	// RTP Header
+	rtpHeader, err := vc.createRtpHeader(sequence, timestamp)
+	if err != nil {
+		return err
+	}
+	packetBuffer.Write(rtpHeader)
+
+	// Encrypted audio data
+	encryptedFrame := vc.encryptAudio(frame, rtpHeader)
+	packetBuffer.Write(encryptedFrame)
+
+	// Send
+	_, err = vc.conn.Write(packetBuffer.Bytes())
 	return err
 }
 
-func (vc *VoiceStream) doIpDiscovery() error {
+func (vc *VoiceStream) encryptAudio(audioFrame []byte, rtpHeader []byte) []byte {
+	var secretKey [32]byte
+	copy(secretKey[:], vc.key)
+
+	var nonce [24]byte
+	copy(nonce[:12], rtpHeader)
+
+	encryptedFrame := secretbox.Seal(make([]byte, 0), audioFrame, &nonce, &secretKey)
+	return encryptedFrame
+}
+
+func (vc *VoiceStream) createRtpHeader(sequence uint16, timestamp uint32) ([]byte, error) {
+	return rtp.Header{
+		Version:        2,
+		Padding:        true,
+		Extension:      false,
+		Marker:         false,
+		PayloadType:    payloadType,
+		SequenceNumber: sequence,
+		Timestamp:      timestamp,
+		SSRC:           vc.Ssrc,
+	}.Marshal()
+}
+
+func (vc *VoiceStream) nextSequence() uint16 {
+	vc.sequence++
+	return vc.sequence
+}
+
+func (vc *VoiceStream) discoverLocalIp() error {
 	reqBuf := bytes.NewBuffer(make([]byte, 0))
-	binary.Write(reqBuf, binary.BigEndian, uint16(1))
-	binary.Write(reqBuf, binary.BigEndian, uint16(70))
-	binary.Write(reqBuf, binary.BigEndian, uint32(vc.Ssrc))
+	_ = binary.Write(reqBuf, binary.BigEndian, uint16(1))
+	_ = binary.Write(reqBuf, binary.BigEndian, uint16(70))
+	_ = binary.Write(reqBuf, binary.BigEndian, vc.Ssrc)
 	reqBuf.Write(make([]byte, 64))
-	binary.Write(reqBuf, binary.BigEndian, uint16(vc.RemotePort))
+	_ = binary.Write(reqBuf, binary.BigEndian, uint16(vc.RemotePort))
 
 	_, err := vc.conn.Write(reqBuf.Bytes())
 	if err != nil {
@@ -92,13 +147,13 @@ func (vc *VoiceStream) doIpDiscovery() error {
 		port    uint16
 	}
 	respBuf := bytes.NewBuffer(respData)
-	binary.Read(respBuf, binary.BigEndian, &resp.msgType)
-	binary.Read(respBuf, binary.BigEndian, &resp.msgLen)
-	binary.Read(respBuf, binary.BigEndian, &resp.ssrc)
+	_ = binary.Read(respBuf, binary.BigEndian, &resp.msgType)
+	_ = binary.Read(respBuf, binary.BigEndian, &resp.msgLen)
+	_ = binary.Read(respBuf, binary.BigEndian, &resp.ssrc)
 	ip, _ := respBuf.ReadBytes(0)
 	resp.ip = string(ip)
 	respBuf.Next(64 - len(ip))
-	binary.Read(respBuf, binary.BigEndian, &resp.port)
+	_ = binary.Read(respBuf, binary.BigEndian, &resp.port)
 
 	vc.LocalIp = resp.ip
 	vc.LocalPort = int(resp.port)

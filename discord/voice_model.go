@@ -2,6 +2,7 @@ package discord
 
 type VoiceOp = int
 
+//goland:noinspection GoUnusedConst
 const (
 	VoiceOpIdentify         = 0
 	VoiceOpSelectProtocol   = 1
@@ -28,7 +29,7 @@ type VoiceHelloMessage struct {
 }
 
 type VoiceReadyMessage struct {
-	Ssrc  int      `json:"ssrc"`
+	Ssrc  uint32   `json:"ssrc"`
 	Port  int      `json:"port"`
 	Ip    string   `json:"ip"`
 	Modes []string `json:"modes"`
