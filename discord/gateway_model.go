@@ -24,6 +24,7 @@ type GatewayEvent = string
 //goland:noinspection GoUnusedConst
 const (
 	GatewayEventMessageCreate     = "MESSAGE_CREATE"
+	GatewayEventMessageUpdate     = "MESSAGE_UPDATE"
 	GatewayEventReady             = "READY"
 	GatewayEventGuildCreate       = "GUILD_CREATE"
 	GatewayEventVoiceStateUpdate  = "VOICE_STATE_UPDATE"

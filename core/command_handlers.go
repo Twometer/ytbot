@@ -2,6 +2,7 @@ package core
 
 import (
 	"log"
+	"strconv"
 	"ytbot/discord"
 	"ytbot/ytapi"
 )
@@ -34,7 +35,15 @@ func PlayCommand(cmd discord.CommandBuffer, client *discord.Client) {
 		return
 	}
 
-	log.Println("Added", len(items), "items to list")
+	// todo add to playlist
+
+	if len(items) == 0 {
+		client.ReplyMessage(cmd.Message, "No Results")
+	} else if len(items) == 1 {
+		client.ReplyMessage(cmd.Message, "Added `"+items[0].Name+"` to queue")
+	} else {
+		client.ReplyMessage(cmd.Message, "Added **"+strconv.Itoa(len(items))+"** items to queue")
+	}
 }
 
 func SkipCommand(cmd discord.CommandBuffer, client *discord.Client) {

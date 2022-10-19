@@ -1,16 +1,24 @@
 package ytapi
 
-import "net/url"
+import (
+	"github.com/buger/jsonparser"
+	"net/url"
+)
 
 func GetVideo(id string) (MediaItem, error) {
 	reqUrl := "https://www.youtube.com/watch?v=" + url.QueryEscape(id)
-	_, err := Get(reqUrl)
+	body, err := Get(reqUrl)
 	if err != nil {
 		return MediaItem{}, err
 	}
 
-	return MediaItem{
-		Name: "TODO",
-		Url:  reqUrl,
-	}, nil
+	ytData := FindYouTubeData(body)
+
+	renderer, _, _, err := jsonparser.Get([]byte(ytData), "contents", "twoColumnWatchNextResults", "results", "results", "contents", "[0]", "videoPrimaryInfoRenderer")
+	if err != nil {
+		return MediaItem{}, err
+	}
+	item := VideoRendererToMediaItem(renderer, id)
+
+	return item, nil
 }

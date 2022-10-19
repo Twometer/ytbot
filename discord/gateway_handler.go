@@ -52,9 +52,11 @@ func (client *Client) handleEvent(in WsMessageIn) {
 		var message Message
 		in.Unmarshal(&message)
 
-		if message.Content[0] == client.cmdPrefix {
+		if len(message.Content) > 0 && message.Content[0] == client.cmdPrefix {
 			client.Commands <- NewCommandBuffer(message)
 		}
+	case GatewayEventMessageUpdate:
+		// ignore
 	case GatewayEventVoiceServerUpdate:
 		var voiceServer VoiceServer
 		in.Unmarshal(&voiceServer)

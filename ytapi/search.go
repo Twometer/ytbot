@@ -1,13 +1,25 @@
 package ytapi
 
-import "net/url"
+import (
+	"github.com/buger/jsonparser"
+	"net/url"
+)
 
 func Search(query string) ([]MediaItem, error) {
 	reqUrl := "https://www.youtube.com/results?search_query=" + url.QueryEscape(query)
-	_, err := Get(reqUrl)
+	body, err := Get(reqUrl)
 	if err != nil {
 		return nil, err
 	}
 
-	panic("to do")
+	ytData := FindYouTubeData(body)
+
+	results := make([]MediaItem, 0)
+
+	_, err = jsonparser.ArrayEach([]byte(ytData), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+		videoRenderer, _, _, _ := jsonparser.Get(value, "videoRenderer")
+		results = append(results, VideoRendererToMediaItem(videoRenderer, ""))
+	}, "contents", "twoColumnSearchResultsRenderer", "primaryContents", "sectionListRenderer", "contents", "[0]", "itemSectionRenderer", "contents")
+
+	return results, err
 }
