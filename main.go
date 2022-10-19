@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"ytbot/codec"
 	"ytbot/config"
 	"ytbot/discord"
 	"ytbot/ytdlp"
@@ -40,7 +41,20 @@ func main() {
 		} else if name == "join" {
 			voiceState, ok := discordClient.Guilds[cmd.Message.GuildId].VoiceStates[cmd.Message.Author.Id]
 			if ok {
-				discordClient.JoinVoiceChannel(voiceState)
+				client, err := discordClient.JoinVoiceChannel(voiceState)
+				if err != nil {
+					log.Println("Failed to join voice channel:", err)
+				}
+				<-client.Ready
+				log.Println("Voice client ready")
+
+				<-client.VoiceStream.Ready
+				log.Println("Voice stream ready")
+				encoder := codec.NewEncoder("https://data.twometer.de/video/crab_rave.mp4", client.VoiceStream)
+				err = encoder.Start()
+				if err != nil {
+					log.Println("Failed to start encoder:", err)
+				}
 			} else {
 				discordClient.ReplyMessage(cmd.Message, "You are not in a voice channel")
 			}

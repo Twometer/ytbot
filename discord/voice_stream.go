@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"github.com/pion/rtp"
 	"golang.org/x/crypto/nacl/secretbox"
 	"log"
 	"net"
-	"ytbot/discord/utils"
 )
 
 const payloadType byte = 0x78
+
+const StatePlaying = 2
+const StateStopped = 3
 
 type VoiceStream struct {
 	RemoteIp   string
@@ -22,16 +23,21 @@ type VoiceStream struct {
 
 	Ssrc uint32
 
-	conn     *net.UDPConn
-	key      []byte
-	sequence uint16
+	conn         *net.UDPConn
+	key          []byte
+	sequence     uint16
+	Ready        chan interface{}
+	StateChanges chan int
+	ts           uint32
 }
 
 func NewVoiceStream(ip string, port int, ssrc uint32) *VoiceStream {
 	return &VoiceStream{
-		RemoteIp:   ip,
-		RemotePort: port,
-		Ssrc:       ssrc,
+		RemoteIp:     ip,
+		RemotePort:   port,
+		Ssrc:         ssrc,
+		Ready:        make(chan interface{}),
+		StateChanges: make(chan int),
 	}
 }
 
@@ -56,6 +62,7 @@ func (vc *VoiceStream) BeginSetup() error {
 
 func (vc *VoiceStream) FinishSetup(key []byte) {
 	vc.key = key
+	vc.Ready <- true
 	log.Println("Voice streaming connection established!")
 }
 
@@ -65,7 +72,8 @@ func (vc *VoiceStream) SendOpusFrame(frame []byte) error {
 	}
 
 	sequence := vc.nextSequence()
-	timestamp := utils.Timestamp()
+	timestamp := vc.ts
+	vc.ts += (48000 / 100) * 2
 	packetBuffer := bytes.NewBuffer(make([]byte, 0))
 
 	// Discord Header
@@ -75,44 +83,32 @@ func (vc *VoiceStream) SendOpusFrame(frame []byte) error {
 	_ = binary.Write(packetBuffer, binary.BigEndian, timestamp)
 	_ = binary.Write(packetBuffer, binary.BigEndian, vc.Ssrc)
 
-	// RTP Header
-	rtpHeader, err := vc.createRtpHeader(sequence, timestamp)
-	if err != nil {
-		return err
-	}
-	packetBuffer.Write(rtpHeader)
-
 	// Encrypted audio data
-	encryptedFrame := vc.encryptAudio(frame, rtpHeader)
+	encryptedFrame := vc.encryptAudio(frame, packetBuffer.Bytes()[:12])
 	packetBuffer.Write(encryptedFrame)
 
 	// Send
-	_, err = vc.conn.Write(packetBuffer.Bytes())
+	_, err := vc.conn.Write(packetBuffer.Bytes())
 	return err
 }
 
-func (vc *VoiceStream) encryptAudio(audioFrame []byte, rtpHeader []byte) []byte {
+func (vc *VoiceStream) OnPlayingStateChanged(playing bool) {
+	if playing {
+		vc.StateChanges <- StatePlaying
+	} else {
+		vc.StateChanges <- StateStopped
+	}
+}
+
+func (vc *VoiceStream) encryptAudio(audioFrame []byte, nonceBytes []byte) []byte {
 	var secretKey [32]byte
 	copy(secretKey[:], vc.key)
 
 	var nonce [24]byte
-	copy(nonce[:12], rtpHeader)
+	copy(nonce[:12], nonceBytes)
 
 	encryptedFrame := secretbox.Seal(make([]byte, 0), audioFrame, &nonce, &secretKey)
 	return encryptedFrame
-}
-
-func (vc *VoiceStream) createRtpHeader(sequence uint16, timestamp uint32) ([]byte, error) {
-	return rtp.Header{
-		Version:        2,
-		Padding:        true,
-		Extension:      false,
-		Marker:         false,
-		PayloadType:    payloadType,
-		SequenceNumber: sequence,
-		Timestamp:      timestamp,
-		SSRC:           vc.Ssrc,
-	}.Marshal()
 }
 
 func (vc *VoiceStream) nextSequence() uint16 {

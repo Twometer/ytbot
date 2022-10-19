@@ -19,30 +19,32 @@ type VoiceClient struct {
 	server      VoiceServer
 	conn        *websocket.Conn
 	heartbeat   *time.Ticker
+	Ready       chan interface{}
+	sendQueue   chan WsMessageOut
 }
 
-func NewVoiceClient(userId string, sessionId string, server VoiceServer) VoiceClient {
-	return VoiceClient{
+func NewVoiceClient(userId string, sessionId string, server VoiceServer) *VoiceClient {
+	return &VoiceClient{
 		userId:    userId,
 		sessionId: sessionId,
 		server:    server,
 		conn:      nil,
+		Ready:     make(chan interface{}),
+		sendQueue: make(chan WsMessageOut),
 	}
 }
 
-func (vc *VoiceClient) Start() error {
+func (vc *VoiceClient) start() error {
 	conn, _, err := websocket.DefaultDialer.Dial("wss://"+vc.server.Endpoint+"?v=4", nil)
 	if err != nil {
 		return err
 	}
 	vc.conn = conn
 
-	err = vc.sendIdentify()
-	if err != nil {
-		return err
-	}
-
 	go vc.receiveLoop()
+	go vc.sendLoop()
+
+	vc.sendIdentify()
 
 	return nil
 }
@@ -65,8 +67,17 @@ func (vc *VoiceClient) receiveLoop() {
 	}
 }
 
-func (vc *VoiceClient) sendIdentify() error {
-	return vc.sendMessage(VoiceOpIdentify, VoiceIdentifyMessage{
+func (vc *VoiceClient) sendLoop() {
+	for messageOut := range vc.sendQueue {
+		err := vc.conn.WriteJSON(messageOut)
+		if err != nil {
+			log.Println("Failed to dispatch message:", messageOut)
+		}
+	}
+}
+
+func (vc *VoiceClient) sendIdentify() {
+	vc.enqueueMessage(VoiceOpIdentify, VoiceIdentifyMessage{
 		ServerId:  vc.server.GuildId,
 		UserId:    vc.userId,
 		SessionId: vc.sessionId,
@@ -74,15 +85,28 @@ func (vc *VoiceClient) sendIdentify() error {
 	})
 }
 
-func (vc *VoiceClient) sendHeartbeat() error {
-	return vc.sendMessage(VoiceOpHeartbeat, utils.NewNonce())
+func (vc *VoiceClient) sendSpeaking(speaking bool) {
+	speakingValue := 0
+	if speaking {
+		speakingValue = 5
+	}
+
+	vc.enqueueMessage(VoiceOpSpeaking, VoiceSpeakingMessage{
+		Speaking: speakingValue,
+		Delay:    0,
+		Ssrc:     vc.VoiceStream.Ssrc,
+	})
 }
 
-func (vc *VoiceClient) sendMessage(opcode VoiceOp, data interface{}) error {
-	return vc.conn.WriteJSON(WsMessageOut{
+func (vc *VoiceClient) sendHeartbeat() {
+	vc.enqueueMessage(VoiceOpHeartbeat, utils.NewNonce())
+}
+
+func (vc *VoiceClient) enqueueMessage(opcode VoiceOp, data interface{}) {
+	vc.sendQueue <- WsMessageOut{
 		Opcode: opcode,
 		Data:   data,
-	})
+	}
 }
 
 func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
@@ -99,7 +123,7 @@ func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
 		return err
 	}
 
-	err = vc.sendMessage(VoiceOpSelectProtocol, VoiceSelectProtocolMessage{
+	vc.enqueueMessage(VoiceOpSelectProtocol, VoiceSelectProtocolMessage{
 		Protocol: "udp",
 		Data: ProtocolData{
 			Address: stream.LocalIp,
@@ -107,10 +131,18 @@ func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
 			Mode:    preferredEncryptionMode,
 		},
 	})
-	if err != nil {
-		return err
-	}
-
 	vc.VoiceStream = stream
+
+	go func() {
+		for state := range stream.StateChanges {
+			log.Println("New Stream State:", state)
+			if state == StatePlaying {
+				vc.sendSpeaking(true)
+			} else {
+				vc.sendSpeaking(false)
+			}
+		}
+	}()
+
 	return nil
 }

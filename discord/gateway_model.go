@@ -113,6 +113,7 @@ type GuildState struct {
 	Id          string
 	Name        string
 	VoiceStates map[string]VoiceState
+	VoiceClient *VoiceClient
 }
 
 type VoiceServer struct {

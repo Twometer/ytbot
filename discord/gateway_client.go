@@ -98,7 +98,7 @@ func (client *Client) sendMessage(opcode GatewayOp, data interface{}) error {
 	})
 }
 
-func (client *Client) JoinVoiceChannel(state VoiceState) error {
+func (client *Client) JoinVoiceChannel(state VoiceState) (*VoiceClient, error) {
 	log.Printf("Joining %s, %s", state.ChannelId, state.GuildId)
 
 	err := client.sendMessage(GatewayOpVoiceStateUpdate, VoiceState{
@@ -109,7 +109,7 @@ func (client *Client) JoinVoiceChannel(state VoiceState) error {
 		SelfDeaf:  true,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Println("Waiting for voice gateway...")
@@ -117,17 +117,20 @@ func (client *Client) JoinVoiceChannel(state VoiceState) error {
 
 	ownVoiceState, ok := client.Guilds[state.GuildId].VoiceStates[client.userId]
 	if !ok {
-		return errors.New("could not get own voice state")
+		return nil, errors.New("could not get own voice state")
 	}
 
 	log.Printf("Connecting to voice gateway at `%s`...\n", voiceServer.Endpoint)
 	voiceClient := NewVoiceClient(client.userId, ownVoiceState.SessionId, voiceServer)
-	err = voiceClient.Start()
+	err = voiceClient.start()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	guild := client.Guilds[state.GuildId]
+	guild.VoiceClient = voiceClient
+
+	return guild.VoiceClient, nil
 }
 
 func (client *Client) sendIdentify() error {

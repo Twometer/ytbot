@@ -14,7 +14,11 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 	case VoiceOpReady:
 		var msg VoiceReadyMessage
 		message.Unmarshal(&msg)
-		vc.initVoiceStream(msg)
+		err := vc.initVoiceStream(msg)
+		if err != nil {
+			log.Println("Failed to init voice stream:", err)
+		}
+		vc.Ready <- true
 	case VoiceOpSessionDesc:
 		var msg VoiceSessionDescriptionMessage
 		message.Unmarshal(&msg)

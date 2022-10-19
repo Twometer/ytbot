@@ -49,3 +49,9 @@ type ProtocolData struct {
 type VoiceSessionDescriptionMessage struct {
 	SecretKey []byte `json:"secret_key"`
 }
+
+type VoiceSpeakingMessage struct {
+	Speaking int    `json:"speaking"`
+	Delay    int    `json:"delay"`
+	Ssrc     uint32 `json:"ssrc"`
+}
