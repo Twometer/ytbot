@@ -1,12 +1,14 @@
 package core
 
 import (
+	"ytbot/codec"
 	"ytbot/discord"
 	"ytbot/ytapi"
 )
 
 type BotState struct {
-	Queue []ytapi.MediaItem
+	Queue   []ytapi.MediaItem
+	Encoder *codec.Encoder
 }
 
 var botStates = make(map[string]*BotState)

@@ -17,6 +17,7 @@ type VoiceClient struct {
 	userId    string
 	sessionId string
 	server    VoiceServer
+	ready     bool
 }
 
 func NewVoiceClient(userId string, sessionId string, server VoiceServer) *VoiceClient {
@@ -39,6 +40,14 @@ func (vc *VoiceClient) start() error {
 	go vc.handlerLoop()
 
 	return nil
+}
+
+func (vc *VoiceClient) IsPlaying() bool {
+	return vc.VoiceStream != nil && vc.VoiceStream.playing
+}
+
+func (vc *VoiceClient) IsReady() bool {
+	return vc.ready
 }
 
 func (vc *VoiceClient) handlerLoop() {

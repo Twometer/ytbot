@@ -19,6 +19,7 @@ type VoiceStream struct {
 
 	Ssrc uint32
 
+	playing  bool
 	parent   *VoiceClient
 	conn     *net.UDPConn
 	key      []byte
@@ -85,21 +86,25 @@ func (vc *VoiceStream) SendOpusFrame(timestamp uint32, frame []byte) error {
 func (vc *VoiceStream) OnBegin() {
 	vc.parent.Events <- VoiceEventPlaying
 	vc.parent.sendSpeaking(true)
+	vc.playing = true
 }
 
 func (vc *VoiceStream) OnFinished() {
 	vc.parent.Events <- VoiceEventFinished
 	vc.parent.sendSpeaking(false)
+	vc.playing = false
 }
 
 func (vc *VoiceStream) OnStopped() {
 	vc.parent.Events <- VoiceEventStopped
 	vc.parent.sendSpeaking(false)
+	vc.playing = false
 }
 
 func (vc *VoiceStream) OnFailed() {
 	vc.parent.Events <- VoiceEventError
 	vc.parent.sendSpeaking(false)
+	vc.playing = false
 }
 
 func (vc *VoiceStream) encryptAudio(audioFrame []byte, nonceBytes []byte) []byte {

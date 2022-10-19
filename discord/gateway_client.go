@@ -89,6 +89,10 @@ func (client *Client) PostMessage(message Message) Message {
 	return message
 }
 
+func (client *Client) GetVoiceClient(guildId string) *VoiceClient {
+	return client.Guilds[guildId].VoiceClient
+}
+
 func (client *Client) JoinVoiceChannel(guildId string, channelId string) (*VoiceClient, error) {
 	// Find guild
 	guild, ok := client.Guilds[guildId]

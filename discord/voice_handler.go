@@ -27,6 +27,7 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 		message.Unmarshal(&msg)
 		vc.VoiceStream.FinishSetup(msg.SecretKey)
 		vc.Events <- VoiceEventReady
+		vc.ready = true
 	case VoiceOpHeartbeatAck:
 	default:
 		log.Println("unhandled voice message:", message.String())

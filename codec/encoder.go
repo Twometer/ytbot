@@ -22,8 +22,8 @@ type AudioSink interface {
 	SendOpusFrame(timestamp uint32, frame []byte) error
 }
 
-func NewEncoder(url string, sink AudioSink) Encoder {
-	return Encoder{
+func NewEncoder(url string, sink AudioSink) *Encoder {
+	return &Encoder{
 		ffmpeg: Ffmpeg{
 			Executable: config.GetString(config.KeyFfmpegLocation),
 			SourceUrl:  url,
