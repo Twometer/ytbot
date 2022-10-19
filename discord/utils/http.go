@@ -10,15 +10,15 @@ import (
 
 var client = &http.Client{}
 
-func HttpPost(url string, token string, body interface{}) error {
+func HttpSend(method string, url string, token string, body interface{}) ([]byte, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(payload))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req.Header.Set("Authorization", token)
@@ -26,22 +26,22 @@ func HttpPost(url string, token string, body interface{}) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = resp.Body.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if resp.StatusCode != 200 {
-		return errors.New(string(respBody))
+		return nil, errors.New(string(respBody))
 	}
 
-	return nil
+	return respBody, nil
 }

@@ -22,15 +22,17 @@ func PingCommand(cmd discord.CommandBuffer, client *discord.Client) {
 }
 
 func PlayCommand(cmd discord.CommandBuffer, client *discord.Client) {
+	statusMsg := client.ReplyMessage(cmd.Message, ":arrows_counterclockwise: Searching...")
+
 	query := cmd.GetStringAll()
 	if len(query) == 0 {
-		client.ReplyMessage(cmd.Message, "A search query is required")
+		client.EditMessage(statusMsg, ":x: A search query or YouTube link is required")
 		return
 	}
 
 	items, err := ytapi.LoadMediaItems(query)
 	if err != nil {
-		client.ReplyMessage(cmd.Message, "An error occurred while loading the media items")
+		client.EditMessage(statusMsg, ":x: An error occurred while running the search")
 		log.Println("error loading media items:", err)
 		return
 	}
@@ -38,11 +40,11 @@ func PlayCommand(cmd discord.CommandBuffer, client *discord.Client) {
 	// todo add to playlist
 
 	if len(items) == 0 {
-		client.ReplyMessage(cmd.Message, "No Results")
+		client.EditMessage(statusMsg, ":x: No Results")
 	} else if len(items) == 1 {
-		client.ReplyMessage(cmd.Message, "Added `"+items[0].Name+"` to queue")
+		client.EditMessage(statusMsg, ":white_check_mark: Added `"+items[0].Name+"` to queue")
 	} else {
-		client.ReplyMessage(cmd.Message, "Added **"+strconv.Itoa(len(items))+"** items to queue")
+		client.EditMessage(statusMsg, ":white_check_mark: Added **"+strconv.Itoa(len(items))+"** items to queue")
 	}
 }
 

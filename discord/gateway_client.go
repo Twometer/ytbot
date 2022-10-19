@@ -3,6 +3,7 @@ package discord
 import (
 	"errors"
 	"fmt"
+	"github.com/buger/jsonparser"
 	"log"
 	"runtime"
 	"ytbot/discord/utils"
@@ -53,33 +54,39 @@ func (client *Client) Start() error {
 	return nil
 }
 
-func (client *Client) ReplyMessage(message Message, content string) {
-	client.PostMessage(Message{
+func (client *Client) ReplyMessage(message Message, content string) Message {
+	return client.PostMessage(Message{
 		Content:   content,
 		ChannelId: message.ChannelId,
 	})
 }
 
 func (client *Client) EditMessage(message Message, newContent string) {
-	panic("todo")
+	url := fmt.Sprintf("%s/channels/%s/messages/%s", apiUrl, message.ChannelId, message.Id)
+	message.Content = newContent
+	_, err := utils.HttpSend("PATCH", url, client.authToken, message)
+	if err != nil {
+		log.Println("Failed to edit message:", err)
+	}
 }
 
 func (client *Client) SendMessage(channel string, content string) Message {
-	message := Message{
+	return client.PostMessage(Message{
 		Content:   content,
 		ChannelId: channel,
-	}
-	client.PostMessage(message)
-	return message
+	})
 }
 
-func (client *Client) PostMessage(message Message) {
+func (client *Client) PostMessage(message Message) Message {
 	url := fmt.Sprintf("%s/channels/%s/messages", apiUrl, message.ChannelId)
 	message.Nonce = utils.NewNonce()
-	err := utils.HttpPost(url, client.authToken, message)
+	resp, err := utils.HttpSend("POST", url, client.authToken, message)
 	if err != nil {
 		log.Println("Failed to send message:", err)
 	}
+	msg, _ := jsonparser.GetString(resp, "id")
+	message.Id = msg
+	return message
 }
 
 func (client *Client) JoinVoiceChannel(guildId string, channelId string) (*VoiceClient, error) {
