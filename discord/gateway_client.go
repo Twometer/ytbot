@@ -89,6 +89,11 @@ func (client *Client) JoinVoiceChannel(guildId string, channelId string) (*Voice
 		return nil, errors.New("tried to join invalid guild")
 	}
 
+	// Check if already there?
+	if guild.VoiceClient != nil {
+		return guild.VoiceClient, nil
+	}
+
 	// Join channel
 	client.ws.Send(GatewayOpVoiceStateUpdate, VoiceState{
 		GuildId:   guildId,
@@ -124,16 +129,19 @@ func (client *Client) JoinVoiceChannel(guildId string, channelId string) (*Voice
 }
 
 func (client *Client) LeaveVoiceChannel(guildId string) {
-	guildState, ok := client.Guilds[guildId]
+	guild, ok := client.Guilds[guildId]
 	if !ok {
 		log.Println("failed to find guild while leaving")
 		return
 	}
 
-	guildState.VoiceClient.Close()
+	guild.VoiceClient.Close()
 	client.ws.Send(GatewayOpVoiceStateUpdate, VoiceStateLeave{
 		GuildId: guildId,
 	})
+
+	guild.VoiceClient = nil
+	client.Guilds[guildId] = guild
 }
 
 func (client *Client) sendIdentify() {
