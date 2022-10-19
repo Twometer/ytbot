@@ -2,6 +2,7 @@ package discord
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
@@ -20,6 +21,7 @@ type Client struct {
 	sequence  int
 	cmdPrefix byte
 	heartbeat *time.Ticker
+	userId    string
 
 	Guilds       map[string]GuildState
 	Commands     chan CommandBuffer
@@ -110,11 +112,20 @@ func (client *Client) JoinVoiceChannel(state VoiceState) error {
 		return err
 	}
 
-	log.Println("Waiting for voice server...")
+	log.Println("Waiting for voice gateway...")
 	voiceServer := <-client.VoiceServers
-	log.Println("Joining voice server", voiceServer.Endpoint)
 
-	// TODO
+	ownVoiceState, ok := client.Guilds[state.GuildId].VoiceStates[client.userId]
+	if !ok {
+		return errors.New("could not get own voice state")
+	}
+
+	log.Printf("Connecting to voice gateway at `%s`...\n", voiceServer.Endpoint)
+	voiceClient := NewVoiceClient(client.userId, ownVoiceState.SessionId, voiceServer)
+	err = voiceClient.Start()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

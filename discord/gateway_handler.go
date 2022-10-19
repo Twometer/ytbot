@@ -25,6 +25,7 @@ func (client *Client) handleEvent(in WsMessageIn) {
 		var message GatewayReadyMessage
 		in.Unmarshal(&message)
 		log.Printf("Logged in as %s#%s\n", message.User.Username, message.User.Discriminator)
+		client.userId = message.User.Id
 	case GatewayEventGuildCreate:
 		var message GatewayGuildCreateMessage
 		in.Unmarshal(&message)
