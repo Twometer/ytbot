@@ -24,7 +24,6 @@ type OutputStream struct {
 
 func (ffmpeg *Ffmpeg) Start() error {
 	cmd := exec.Command(ffmpeg.Executable, ffmpeg.buildArguments()...)
-	log.Println(ffmpeg.Executable, ffmpeg.buildArguments())
 	ffmpeg.Command = cmd
 
 	stdout, err := cmd.StdoutPipe()

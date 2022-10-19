@@ -22,6 +22,11 @@ type AudioSink interface {
 	SendOpusFrame(timestamp uint32, frame []byte) error
 }
 
+type audioFrame struct {
+	data   []byte
+	header *oggreader.OggPageHeader
+}
+
 func NewEncoder(url string, sink AudioSink) *Encoder {
 	return &Encoder{
 		ffmpeg: Ffmpeg{
@@ -53,24 +58,48 @@ func (encoder *Encoder) Start() error {
 	ticker := time.NewTicker(20 * time.Millisecond)
 	encoder.sink.OnBegin()
 
+	pageChan := make(chan audioFrame, 300000)
+
 	go func() {
-		//defer log.Println("Encoder terminated")
+		for {
+			select {
+			case <-encoder.stopChan:
+				log.Println("Audio buffer stopped")
+				return
+			default:
+				pageData, pageHeader, err := oggReader.ParseNextPage()
+				if err == io.EOF {
+					log.Println("Audio buffer finished")
+					pageChan <- audioFrame{
+						data:   nil,
+						header: nil,
+					}
+					return
+				} else if err != nil {
+					log.Println("Audio buffer failed:", err)
+					return
+				}
+
+				pageChan <- audioFrame{
+					data:   pageData,
+					header: pageHeader,
+				}
+			}
+		}
+	}()
+
+	go func() {
 		defer encoder.ffmpeg.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				pageData, pageHeader, err := oggReader.ParseNextPage()
-				if err == io.EOF {
+				page := <-pageChan
+				if page.header == nil && page.data == nil {
 					log.Println("Audio playback finished")
 					encoder.sink.OnFinished()
 					return
-				} else if err != nil {
-					log.Println("Audio decoder failed:", err)
-					encoder.sink.OnFailed()
-					return
 				}
-
-				err = encoder.sink.SendOpusFrame(uint32(pageHeader.GranulePosition), pageData)
+				err = encoder.sink.SendOpusFrame(uint32(page.header.GranulePosition), page.data)
 				if err != nil {
 					log.Println("Failed to write audio frame:", err)
 					encoder.sink.OnFailed()
