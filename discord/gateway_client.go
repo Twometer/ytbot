@@ -146,12 +146,13 @@ func (client *Client) LeaveVoiceChannel(guildId string) {
 		return
 	}
 
-	guild.VoiceClient.Close()
 	client.ws.Send(GatewayOpVoiceStateUpdate, VoiceStateLeave{
 		GuildId: guildId,
 	})
 
+	guild.VoiceClient.Close()
 	guild.VoiceClient = nil
+
 	client.Guilds[guildId] = guild
 }
 
@@ -168,8 +169,8 @@ func (client *Client) sendIdentify() {
 }
 
 func (client *Client) handlerLoop() {
-	//defer log.Println("Gateway handler loop has terminated")
 	for message := range client.ws.MessagesIn {
 		client.handleMessage(message)
 	}
+	log.Println("Gateway handler was stopped")
 }

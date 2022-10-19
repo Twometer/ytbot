@@ -90,14 +90,14 @@ func (ws *WebSocket) Close() {
 		ws.heartbeat.Stop()
 	}
 
+	close(ws.closeChan)
+	close(ws.MessagesOut)
+	close(ws.MessagesIn)
+
 	err := ws.conn.Close()
 	if err != nil {
 		log.Println("Failed to close WebSocket gracefully:", err)
 	}
-
-	close(ws.closeChan)
-	close(ws.MessagesOut)
-	close(ws.MessagesIn)
 
 	ws.closed = true
 }

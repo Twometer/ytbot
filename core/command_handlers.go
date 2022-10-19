@@ -134,11 +134,18 @@ func playNext(cmd discord.CommandBuffer, client *discord.Client, guildId string,
 	log.Println("New song started playing (hopefully)")
 
 	go func() {
-		log.Println("Waiting for song to finish")
+		log.Println("Waiting for current playback to finish ...")
 		for event := range voiceClient.Events {
 			if event == discord.VoiceEventFinished {
-				log.Println("song finished by itself, starting next one")
+				log.Println("Playback finished gracefully, starting next one")
 				go playNext(cmd, client, guildId, channelId)
+				return
+			} else if event == discord.VoiceEventError {
+				log.Println("Playback finished with error, sending error message")
+				client.ReplyMessage(statusMsg, EmojiFailed+"Something went wrong during playback")
+				return
+			} else if event == discord.VoiceEventStopped {
+				log.Println("Playback was stopped")
 				return
 			}
 		}
@@ -147,7 +154,9 @@ func playNext(cmd discord.CommandBuffer, client *discord.Client, guildId string,
 
 func StopCommand(cmd discord.CommandBuffer, client *discord.Client) {
 	client.LeaveVoiceChannel(cmd.Message.GuildId)
-	GetBotState(cmd.Message).Queue = nil
+	botState := GetBotState(cmd.Message)
+	botState.Queue = nil
+	botState.Encoder.Stop()
 	client.ReplyMessage(cmd.Message, EmojiSuccess+"Stopped playback and left the voice channel")
 }
 

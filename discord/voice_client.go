@@ -118,8 +118,8 @@ func (vc *VoiceClient) sendSelectProtocol() {
 }
 
 func (vc *VoiceClient) Close() {
-	vc.ws.Close()
 	if vc.VoiceStream != nil {
 		vc.VoiceStream.Close()
 	}
+	vc.ws.Close()
 }
