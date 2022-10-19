@@ -1,26 +1,20 @@
 package discord
 
 import (
-	"encoding/json"
 	"errors"
-	"github.com/gorilla/websocket"
 	"golang.org/x/exp/slices"
 	"log"
-	"time"
-	"ytbot/discord/utils"
 )
 
 const preferredEncryptionMode = "xsalsa20_poly1305"
 
 type VoiceClient struct {
 	VoiceStream *VoiceStream
+	ws          *WebSocket
 	userId      string
 	sessionId   string
 	server      VoiceServer
-	conn        *websocket.Conn
-	heartbeat   *time.Ticker
 	Ready       chan interface{}
-	sendQueue   chan WsMessageOut
 }
 
 func NewVoiceClient(userId string, sessionId string, server VoiceServer) *VoiceClient {
@@ -28,56 +22,31 @@ func NewVoiceClient(userId string, sessionId string, server VoiceServer) *VoiceC
 		userId:    userId,
 		sessionId: sessionId,
 		server:    server,
-		conn:      nil,
 		Ready:     make(chan interface{}),
-		sendQueue: make(chan WsMessageOut),
 	}
 }
 
 func (vc *VoiceClient) start() error {
-	conn, _, err := websocket.DefaultDialer.Dial("wss://"+vc.server.Endpoint+"?v=4", nil)
+	ws, err := OpenWebSocket("wss://" + vc.server.Endpoint + "?v=4")
 	if err != nil {
 		return err
 	}
-	vc.conn = conn
-
-	go vc.receiveLoop()
-	go vc.sendLoop()
+	vc.ws = ws
 
 	vc.sendIdentify()
+	go vc.handlerLoop()
 
 	return nil
 }
 
-func (vc *VoiceClient) receiveLoop() {
-	for {
-		_, data, err := vc.conn.ReadMessage()
-		if err != nil {
-			log.Fatalln("failed to read from WebSocket:", err)
-		}
-
-		var message WsMessageIn
-		err = json.Unmarshal(data, &message)
-		if err != nil {
-			log.Println("error: failed to decode JSON:", err)
-			continue
-		}
-
-		vc.handleMessage(message)
-	}
-}
-
-func (vc *VoiceClient) sendLoop() {
-	for messageOut := range vc.sendQueue {
-		err := vc.conn.WriteJSON(messageOut)
-		if err != nil {
-			log.Println("Failed to dispatch message:", messageOut)
-		}
+func (vc *VoiceClient) handlerLoop() {
+	for msg := range vc.ws.MessagesIn {
+		vc.handleMessage(msg)
 	}
 }
 
 func (vc *VoiceClient) sendIdentify() {
-	vc.enqueueMessage(VoiceOpIdentify, VoiceIdentifyMessage{
+	vc.ws.Send(VoiceOpIdentify, VoiceIdentifyMessage{
 		ServerId:  vc.server.GuildId,
 		UserId:    vc.userId,
 		SessionId: vc.sessionId,
@@ -91,22 +60,11 @@ func (vc *VoiceClient) sendSpeaking(speaking bool) {
 		speakingValue = 5
 	}
 
-	vc.enqueueMessage(VoiceOpSpeaking, VoiceSpeakingMessage{
+	vc.ws.Send(VoiceOpSpeaking, VoiceSpeakingMessage{
 		Speaking: speakingValue,
 		Delay:    0,
 		Ssrc:     vc.VoiceStream.Ssrc,
 	})
-}
-
-func (vc *VoiceClient) sendHeartbeat() {
-	vc.enqueueMessage(VoiceOpHeartbeat, utils.NewNonce())
-}
-
-func (vc *VoiceClient) enqueueMessage(opcode VoiceOp, data interface{}) {
-	vc.sendQueue <- WsMessageOut{
-		Opcode: opcode,
-		Data:   data,
-	}
 }
 
 func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
@@ -117,13 +75,13 @@ func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
 	}
 
 	stream := NewVoiceStream(msg.Ip, msg.Port, msg.Ssrc)
-
 	err := stream.BeginSetup()
 	if err != nil {
 		return err
 	}
+	vc.VoiceStream = stream
 
-	vc.enqueueMessage(VoiceOpSelectProtocol, VoiceSelectProtocolMessage{
+	vc.ws.Send(VoiceOpSelectProtocol, VoiceSelectProtocolMessage{
 		Protocol: "udp",
 		Data: ProtocolData{
 			Address: stream.LocalIp,
@@ -131,7 +89,6 @@ func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
 			Mode:    preferredEncryptionMode,
 		},
 	})
-	vc.VoiceStream = stream
 
 	go func() {
 		for state := range stream.StateChanges {
@@ -145,4 +102,8 @@ func (vc *VoiceClient) initVoiceStream(msg VoiceReadyMessage) error {
 	}()
 
 	return nil
+}
+
+func (vc *VoiceClient) Close() {
+	vc.ws.Close()
 }

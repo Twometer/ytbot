@@ -45,11 +45,10 @@ func main() {
 				if err != nil {
 					log.Println("Failed to join voice channel:", err)
 				}
+
 				<-client.Ready
 				log.Println("Voice client ready")
 
-				<-client.VoiceStream.Ready
-				log.Println("Voice stream ready")
 				encoder := codec.NewEncoder("https://data.twometer.de/video/crab_rave.mp4", client.VoiceStream)
 				err = encoder.Start()
 				if err != nil {

@@ -3,6 +3,7 @@ package discord
 import (
 	"log"
 	"time"
+	"ytbot/discord/utils"
 )
 
 func (vc *VoiceClient) handleMessage(message WsMessageIn) {
@@ -10,7 +11,9 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 	case VoiceOpHello:
 		var msg VoiceHelloMessage
 		message.Unmarshal(&msg)
-		vc.startHeartbeat(time.Millisecond * time.Duration(msg.HeartbeatInterval))
+		vc.ws.StartHeartbeat(time.Millisecond*time.Duration(msg.HeartbeatInterval), func() WsMessageOut {
+			return WsMessageOut{Opcode: VoiceOpHeartbeat, Data: utils.NewNonce()}
+		})
 	case VoiceOpReady:
 		var msg VoiceReadyMessage
 		message.Unmarshal(&msg)
@@ -18,29 +21,13 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 		if err != nil {
 			log.Println("Failed to init voice stream:", err)
 		}
-		vc.Ready <- true
 	case VoiceOpSessionDesc:
 		var msg VoiceSessionDescriptionMessage
 		message.Unmarshal(&msg)
 		vc.VoiceStream.FinishSetup(msg.SecretKey)
+		vc.Ready <- true
 	case VoiceOpHeartbeatAck:
-	// ignore
 	default:
 		log.Println("unhandled voice message:", message.String())
 	}
-}
-
-func (vc *VoiceClient) startHeartbeat(interval time.Duration) {
-	if vc.heartbeat == nil {
-		vc.heartbeat = time.NewTicker(interval)
-	} else {
-		vc.heartbeat.Reset(interval)
-	}
-
-	go func() {
-		vc.sendHeartbeat()
-		for range vc.heartbeat.C {
-			vc.sendHeartbeat()
-		}
-	}()
 }

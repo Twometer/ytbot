@@ -17,7 +17,7 @@ type Encoder struct {
 type AudioSink interface {
 	OnPlayingStateChanged(playing bool)
 
-	SendOpusFrame(frame []byte) error
+	SendOpusFrame(timestamp uint32, frame []byte) error
 }
 
 func NewEncoder(url string, sink AudioSink) Encoder {
@@ -55,7 +55,7 @@ func (encoder *Encoder) Start() error {
 		for {
 			select {
 			case <-ticker.C:
-				pageData, _, err := oggReader.ParseNextPage()
+				pageData, pageHeader, err := oggReader.ParseNextPage()
 				if err == io.EOF {
 					log.Println("Audio playback finished")
 					encoder.sink.OnPlayingStateChanged(false)
@@ -66,7 +66,7 @@ func (encoder *Encoder) Start() error {
 					return
 				}
 
-				err = encoder.sink.SendOpusFrame(pageData)
+				err = encoder.sink.SendOpusFrame(uint32(pageHeader.GranulePosition), pageData)
 				if err != nil {
 					log.Println("Failed to write audio frame:", err)
 				}

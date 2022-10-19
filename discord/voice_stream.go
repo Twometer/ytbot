@@ -26,9 +26,7 @@ type VoiceStream struct {
 	conn         *net.UDPConn
 	key          []byte
 	sequence     uint16
-	Ready        chan interface{}
 	StateChanges chan int
-	ts           uint32
 }
 
 func NewVoiceStream(ip string, port int, ssrc uint32) *VoiceStream {
@@ -36,7 +34,6 @@ func NewVoiceStream(ip string, port int, ssrc uint32) *VoiceStream {
 		RemoteIp:     ip,
 		RemotePort:   port,
 		Ssrc:         ssrc,
-		Ready:        make(chan interface{}),
 		StateChanges: make(chan int),
 	}
 }
@@ -62,18 +59,15 @@ func (vc *VoiceStream) BeginSetup() error {
 
 func (vc *VoiceStream) FinishSetup(key []byte) {
 	vc.key = key
-	vc.Ready <- true
 	log.Println("Voice streaming connection established!")
 }
 
-func (vc *VoiceStream) SendOpusFrame(frame []byte) error {
+func (vc *VoiceStream) SendOpusFrame(timestamp uint32, frame []byte) error {
 	if vc.key == nil {
 		return errors.New("voice stream is not initialized")
 	}
 
 	sequence := vc.nextSequence()
-	timestamp := vc.ts
-	vc.ts += (48000 / 100) * 2
 	packetBuffer := bytes.NewBuffer(make([]byte, 0))
 
 	// Discord Header

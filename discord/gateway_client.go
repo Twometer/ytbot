@@ -114,6 +114,18 @@ func (client *Client) JoinVoiceChannel(state VoiceState) (*VoiceClient, error) {
 	return guild.VoiceClient, nil
 }
 
+func (client *Client) LeaveVoiceChannel(guildId string) {
+	voiceState, ok := client.Guilds[guildId]
+	if !ok {
+		return
+	}
+
+	voiceState.VoiceClient.Close()
+	client.ws.Send(GatewayOpVoiceStateUpdate, VoiceStateLeave{
+		GuildId: guildId,
+	})
+}
+
 func (client *Client) sendIdentify() {
 	client.ws.Send(GatewayOpIdentify, IdentifyPayload{
 		Token:   client.authToken,

@@ -109,6 +109,10 @@ type VoiceState struct {
 	Deaf      bool   `json:"deaf"`
 }
 
+type VoiceStateLeave struct {
+	GuildId string `json:"guild_id"`
+}
+
 type GuildState struct {
 	Id          string
 	Name        string
