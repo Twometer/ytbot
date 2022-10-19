@@ -13,7 +13,9 @@ func (client *Client) handleMessage(in WsMessageIn) {
 	case GatewayOpHello:
 		var message GatewayHelloMessage
 		in.Unmarshal(&message)
-		client.startHeartbeat(time.Millisecond * time.Duration(message.HeartbeatInterval))
+		client.ws.StartHeartbeat(time.Millisecond*time.Duration(message.HeartbeatInterval), func() WsMessageOut {
+			return WsMessageOut{Opcode: GatewayOpHeartbeat, Data: client.sequence}
+		})
 	case GatewayOpInvalidSession:
 		log.Fatalln("gateway client session was invalidated")
 	}
