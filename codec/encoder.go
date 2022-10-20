@@ -95,7 +95,7 @@ func (encoder *Encoder) Start() error {
 			case <-ticker.C:
 				page := <-pageChan
 				if page.header == nil && page.data == nil {
-					log.Println("Audio playback finished")
+					log.Println("Audio encoding finished")
 					encoder.sink.OnFinished()
 					return
 				}
@@ -106,7 +106,7 @@ func (encoder *Encoder) Start() error {
 					return
 				}
 			case <-encoder.stopChan:
-				log.Println("Audio playback stopped")
+				log.Println("Audio encoding stopped")
 				encoder.sink.OnStopped()
 				return
 			}

@@ -2,6 +2,7 @@ package discord
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/gorilla/websocket"
 	"log"
 	"sync"
@@ -101,6 +102,8 @@ func (ws *WebSocket) Close() {
 		return
 	}
 
+	ws.closed = true
+
 	if ws.heartbeat != nil {
 		ws.heartbeat.Stop()
 	}
@@ -113,41 +116,50 @@ func (ws *WebSocket) Close() {
 	if err != nil {
 		log.Println(ws.Name+": Failed to close WebSocket gracefully:", err)
 	}
-
-	ws.closed = true
 }
 
-func (ws *WebSocket) sendHeartbeat() {
-	ws.sendMessage(ws.heartbeatProvider())
+func (ws *WebSocket) sendHeartbeat() error {
+	return ws.sendMessage(ws.heartbeatProvider())
 }
 
-func (ws *WebSocket) sendMessage(msg WsMessageOut) {
+func (ws *WebSocket) sendMessage(msg WsMessageOut) error {
 	err := ws.conn.WriteJSON(msg)
 	if err != nil {
-		log.Println(ws.Name+": failed to write WebSocket message:", err)
-		ws.Events <- WsEventError
+		if ws.closed {
+			return errors.New(ws.Name + ": WebSocket was closed")
+		} else {
+			log.Println(ws.Name+": failed to write WebSocket message:", err)
+			ws.Events <- WsEventError
+		}
 	}
+	return nil
 }
 
 func (ws *WebSocket) runSendLoop() {
 	//defer log.Println("WS send loop terminated")
 	for {
+		var err error = nil
 		if ws.heartbeat != nil {
 			select {
 			case msg := <-ws.MessagesOut:
-				ws.sendMessage(msg)
+				err = ws.sendMessage(msg)
 			case <-ws.heartbeat.C:
-				ws.sendHeartbeat()
+				err = ws.sendHeartbeat()
 			case <-ws.closeChan:
 				return
 			}
 		} else {
 			select {
 			case msg := <-ws.MessagesOut:
-				ws.sendMessage(msg)
+				err = ws.sendMessage(msg)
 			case <-ws.closeChan:
 				return
 			}
+		}
+
+		if err != nil {
+			log.Println(ws.Name+": Send loop encountered an error an exited:", err)
+			return
 		}
 	}
 }
@@ -164,6 +176,10 @@ func (ws *WebSocket) runReceiveLoop() {
 	}()
 	for {
 		msgType, data, err := ws.conn.ReadMessage()
+		if ws.closed {
+			log.Println(ws.Name + ": stopped receive loop after close")
+			return
+		}
 		if err != nil {
 			log.Println(ws.Name+": failed to read WebSocket message:", err)
 			ws.Events <- WsEventError

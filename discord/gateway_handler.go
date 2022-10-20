@@ -59,7 +59,6 @@ func (client *Client) handleEvent(in WsMessageIn) {
 		var message Message
 		in.Unmarshal(&message)
 
-		log.Println("Message received")
 		if len(message.Content) > 0 && message.Content[0] == client.cmdPrefix {
 			client.Commands <- NewCommandBuffer(message)
 		}
