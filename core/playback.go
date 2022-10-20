@@ -64,7 +64,7 @@ func playNext(cmd discord.CommandBuffer, client *discord.Client, guildId string,
 		return
 	}
 
-	client.EditMessage(statusMsg, EmojiSuccess+"Now playing: `"+nextSong.Name+"`.")
+	client.EditMessage(statusMsg, EmojiPlay+"Now playing: `"+nextSong.Name+"`.")
 	log.Println("New song started playing (hopefully)")
 
 	go func() {

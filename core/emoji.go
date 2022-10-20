@@ -5,4 +5,6 @@ const (
 	EmojiFailed  = ":red_circle:  "
 	EmojiNeutral = ":yellow_circle:  "
 	EmojiSuccess = ":green_circle:  "
+	EmojiPlay    = ":arrow_forward:  "
+	EmojiStop    = ":stop_button:  "
 )

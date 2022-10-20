@@ -79,7 +79,7 @@ func StopCommand(cmd discord.CommandBuffer, client *discord.Client) {
 	botState := GetBotState(cmd.Message)
 	botState.Queue = nil
 	botState.Encoder.Stop()
-	client.ReplyMessage(cmd.Message, EmojiSuccess+"Stopped playback and left the voice channel")
+	client.ReplyMessage(cmd.Message, EmojiStop+"Stopped playback and left the voice channel")
 }
 
 func MoveCommand(cmd discord.CommandBuffer, client *discord.Client) {
