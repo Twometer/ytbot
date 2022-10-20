@@ -6,6 +6,10 @@ import (
 )
 
 func (client *Client) handleMessage(in WsMessageIn) {
+	if in.Data == nil {
+		return
+	}
+
 	switch in.Opcode {
 	case GatewayOpDispatch:
 		client.sequence = in.Sequence
@@ -55,7 +59,7 @@ func (client *Client) handleEvent(in WsMessageIn) {
 		var message Message
 		in.Unmarshal(&message)
 
-		log.Println("received a message")
+		log.Println("Message received")
 		if len(message.Content) > 0 && message.Content[0] == client.cmdPrefix {
 			client.Commands <- NewCommandBuffer(message)
 		}
@@ -67,6 +71,6 @@ func (client *Client) handleEvent(in WsMessageIn) {
 
 		client.VoiceServers <- voiceServer
 	default:
-		log.Println("Unhandled event:", in.String())
+		log.Println("Unhandled gateway event:", in.String())
 	}
 }

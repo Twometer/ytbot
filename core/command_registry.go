@@ -1,6 +1,7 @@
 package core
 
 import (
+	"log"
 	"strings"
 	"ytbot/discord"
 )
@@ -16,6 +17,7 @@ func RegisterCommand(name string, handler CommandHandler) {
 func HandleCommand(cmd discord.CommandBuffer, client *discord.Client) {
 	name := cmd.GetString()
 	handler, ok := commands[strings.ToLower(name)]
+	log.Println("Handling command " + name)
 	if ok {
 		handler(cmd, client)
 	} else {

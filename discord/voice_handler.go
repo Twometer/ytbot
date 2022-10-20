@@ -7,6 +7,10 @@ import (
 )
 
 func (vc *VoiceClient) handleMessage(message WsMessageIn) {
+	if message.Data == nil {
+		return
+	}
+
 	switch message.Opcode {
 	case VoiceOpHello:
 		var msg VoiceHelloMessage
@@ -30,6 +34,6 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 		vc.ready = true
 	case VoiceOpHeartbeatAck:
 	default:
-		log.Println("unhandled voice message:", message.String())
+		log.Println("Unhandled voice message:", message.String())
 	}
 }
