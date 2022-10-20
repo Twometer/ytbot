@@ -111,7 +111,8 @@ type VoiceState struct {
 }
 
 type VoiceStateLeave struct {
-	GuildId string `json:"guild_id"`
+	GuildId   string  `json:"guild_id"`
+	ChannelId *string `json:"channel_id"`
 }
 
 type GuildState struct {

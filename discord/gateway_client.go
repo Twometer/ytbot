@@ -149,14 +149,17 @@ func (client *Client) LeaveVoiceChannel(guildId string) {
 		return
 	}
 
-	client.ws.Send(GatewayOpVoiceStateUpdate, VoiceStateLeave{
-		GuildId: guildId,
-	})
-
-	guild.VoiceClient.Close()
-	guild.VoiceClient = nil
+	if guild.VoiceClient != nil {
+		guild.VoiceClient.Close()
+		guild.VoiceClient = nil
+	}
 
 	client.Guilds[guildId] = guild
+
+	client.ws.Send(GatewayOpVoiceStateUpdate, VoiceStateLeave{
+		GuildId:   guildId,
+		ChannelId: nil,
+	})
 }
 
 func (client *Client) sendIdentify() {
