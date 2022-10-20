@@ -2,30 +2,30 @@ package ytdlp
 
 import (
 	"errors"
+	"go.uber.org/zap"
 	"io"
-	"log"
 	"net/http"
 	"os"
 )
 
 func EnsurePresent() error {
-	log.Println("Checking if yt-dlp is present...")
+	zap.S().Debugln("Checking if yt-dlp is present")
 
 	downloadPath := getExecutablePath()
-	log.Printf("Path for yt-dlp is `%s`\n", downloadPath)
+	zap.S().Debugln("Path for yt-dlp was loaded", "path", downloadPath)
 
 	_, err := os.Stat(downloadPath)
 	if errors.Is(err, os.ErrNotExist) {
-		log.Println("yt-dlp executable is not present")
+		zap.S().Debugln("yt-dlp is not present, downloading")
 		err = download(downloadPath)
 		if err != nil {
 			return errors.New("Failed to download yt-dlp: " + err.Error())
 		}
 	} else {
-		log.Println("yt-dlp executable is present")
+		zap.S().Debugln("yt-dlp is present")
 	}
 
-	log.Println("Checking yt-dlp executable...")
+	zap.S().Debugln("Validating yt-dlp executable")
 	validate()
 
 	return nil
@@ -33,7 +33,7 @@ func EnsurePresent() error {
 
 func download(path string) error {
 	downloadUrl := getExecutableUrl()
-	log.Printf("Downloading yt-dlp from `%s`...\n", downloadUrl)
+	zap.S().Infoln("Downloading yt-dlp executable", "downloadUrl", downloadUrl)
 
 	out, err := os.Create(path)
 	if err != nil {
@@ -58,8 +58,8 @@ func download(path string) error {
 func validate() {
 	ver, err := GetVersion()
 	if err != nil {
-		log.Fatalln("Executable may be corrupted: failed to get version from yt-dlp:", err)
+		zap.S().Fatalw("Failed to get version from yt-dlp. Executable may be corrupted.", "error", err)
 	} else {
-		log.Printf("Found valid yt-dlp with version %s\n", ver)
+		zap.S().Infow("Found valid yt-dlp executable", "version", ver)
 	}
 }

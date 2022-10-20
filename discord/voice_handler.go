@@ -1,7 +1,7 @@
 package discord
 
 import (
-	"log"
+	"go.uber.org/zap"
 	"time"
 	"ytbot/discord/utils"
 )
@@ -23,7 +23,7 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 		message.Unmarshal(&msg)
 		err := vc.createVoiceStream(msg)
 		if err != nil {
-			log.Println("Failed to init voice stream:", err)
+			zap.S().Errorw("Failed to create a voice stream", "error", err)
 			vc.Events <- VoiceEventError
 		}
 	case VoiceOpSessionDesc:
@@ -34,6 +34,6 @@ func (vc *VoiceClient) handleMessage(message WsMessageIn) {
 		vc.ready = true
 	case VoiceOpHeartbeatAck:
 	default:
-		log.Println("Unhandled voice message:", message.String())
+		zap.S().Debugw("Unhandled voice event", "event", message.String())
 	}
 }

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/nacl/secretbox"
-	"log"
 	"net"
 )
 
@@ -56,7 +56,7 @@ func (stream *VoiceStream) BeginSetup() error {
 
 func (stream *VoiceStream) FinishSetup(key []byte) {
 	stream.key = key
-	log.Println("Voice streaming connection established!")
+	zap.S().Infow("Voice stream finished initialization")
 }
 
 func (stream *VoiceStream) SendOpusFrame(timestamp uint32, frame []byte) error {
@@ -154,15 +154,14 @@ func (stream *VoiceStream) discoverLocalIp() error {
 	_ = binary.Read(respBuf, binary.BigEndian, &resp.msgLen)
 	_ = binary.Read(respBuf, binary.BigEndian, &resp.ssrc)
 	ip, _ := respBuf.ReadBytes(0)
-	resp.ip = string(ip)
+	resp.ip = string(ip[:len(ip)-1])
 	respBuf.Next(64 - len(ip))
 	_ = binary.Read(respBuf, binary.BigEndian, &resp.port)
 
 	stream.LocalIp = resp.ip
 	stream.LocalPort = int(resp.port)
 
-	log.Printf("IP Discovery completed: %s:%d\n", resp.ip, resp.port)
-
+	zap.S().Debugw("IP discovery finished successfully", "ip", resp.ip, "port", resp.port)
 	return nil
 }
 
@@ -173,6 +172,6 @@ func (stream *VoiceStream) Close() {
 
 	err := stream.conn.Close()
 	if err != nil {
-		log.Println("Could not gracefully shut down voice stream:", err)
+		zap.S().Warnw("Gould not gracefully shut down the voice stream", "error", err)
 	}
 }

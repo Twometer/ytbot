@@ -26,14 +26,17 @@ func loadKey(key Key, defaultValue string) {
 	configValues[key] = value
 }
 
+//goland:noinspection GoUnusedExportedFunction
 func GetBool(key Key) bool {
 	return strings.ToLower(configValues[key]) == "true"
 }
 
+//goland:noinspection GoUnusedExportedFunction
 func GetString(key Key) string {
 	return configValues[key]
 }
 
+//goland:noinspection GoUnusedExportedFunction
 func GetInt(key Key) int {
 	val, err := strconv.Atoi(configValues[key])
 	if err != nil {
@@ -42,6 +45,7 @@ func GetInt(key Key) int {
 	return val
 }
 
+//goland:noinspection GoUnusedExportedFunction
 func GetMilliseconds(key Key) time.Duration {
 	return time.Millisecond * time.Duration(GetInt(key))
 }

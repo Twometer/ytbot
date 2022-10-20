@@ -1,7 +1,7 @@
 package core
 
 import (
-	"log"
+	"go.uber.org/zap"
 	"strconv"
 	"strings"
 	"ytbot/discord"
@@ -42,7 +42,7 @@ func PlayCommand(cmd discord.CommandBuffer, client *discord.Client) {
 	items, err := ytapi.LoadMediaItems(query)
 	if err != nil {
 		client.EditMessage(statusMsg, EmojiFailed+"An error occurred while connecting to YouTube")
-		log.Println("Failed to load media items:", err)
+		zap.S().Warnw("Failed to load media items from YouTube", "query", query, "error", err)
 		return
 	}
 
@@ -61,7 +61,7 @@ func PlayCommand(cmd discord.CommandBuffer, client *discord.Client) {
 
 	voiceClient := client.GetVoiceClient(cmd.Message.GuildId)
 	if voiceClient == nil || !voiceClient.IsPlaying() {
-		log.Println("Triggering playback because voice client is idle")
+		zap.S().Debugln("Triggering playback because voice client is idle")
 		playNext(cmd, client, voiceState.GuildId, voiceState.ChannelId)
 	}
 }

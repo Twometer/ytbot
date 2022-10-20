@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/buger/jsonparser"
-	"log"
+	"go.uber.org/zap"
 	"runtime"
 	"ytbot/discord/utils"
 )
@@ -40,7 +40,7 @@ func (client *Client) AddIntent(intent Intent) {
 }
 
 func (client *Client) Start() error {
-	log.Println("Connecting to Discord...")
+	zap.S().Infoln("Connecting to Discord gateway")
 
 	ws, err := OpenWebSocket(gatewayUrl, "Gateway", true)
 	if err != nil {
@@ -69,7 +69,7 @@ func (client *Client) EditMessage(message Message, newContent string) {
 	message.Content = newContent
 	_, err := utils.HttpSend("PATCH", url, client.authToken, message)
 	if err != nil {
-		log.Println("Failed to edit message:", err)
+		zap.S().Errorw("Failed to edit message", "newContent", newContent, "error", err)
 	}
 }
 
@@ -85,7 +85,7 @@ func (client *Client) PostMessage(message Message) Message {
 	message.Nonce = utils.NewNonce()
 	resp, err := utils.HttpSend("POST", url, client.authToken, message)
 	if err != nil {
-		log.Println("Failed to send message:", err)
+		zap.S().Errorw("Failed to send message", "content", message.Content, "error", err)
 	}
 	msg, _ := jsonparser.GetString(resp, "id")
 	message.Id = msg
@@ -118,7 +118,7 @@ func (client *Client) JoinVoiceChannel(guildId string, channelId string) (*Voice
 	})
 
 	// Acquire voice server
-	log.Println("Waiting for voice gateway...")
+	zap.S().Debugln("Waiting for voice gateway")
 	voiceServer := <-client.VoiceServers
 
 	// Get own voice session
@@ -128,7 +128,7 @@ func (client *Client) JoinVoiceChannel(guildId string, channelId string) (*Voice
 	}
 
 	// Create voice client
-	log.Printf("Connecting to voice gateway at `%s`...\n", voiceServer.Endpoint)
+	zap.S().Debugw("Connecting to voice gateway", "endpoint", voiceServer.Endpoint)
 	voiceClient := NewVoiceClient(client.userId, ownVoiceState.SessionId, voiceServer)
 	err := voiceClient.start()
 	if err != nil {
@@ -145,7 +145,7 @@ func (client *Client) JoinVoiceChannel(guildId string, channelId string) (*Voice
 func (client *Client) LeaveVoiceChannel(guildId string) {
 	guild, ok := client.Guilds[guildId]
 	if !ok {
-		log.Println("failed to find guild while leaving")
+		zap.S().Errorw("Failed to find guild while leaving voice channel", "guildId", guildId)
 		return
 	}
 
@@ -178,5 +178,5 @@ func (client *Client) handlerLoop() {
 	for message := range client.ws.MessagesIn {
 		client.handleMessage(message)
 	}
-	log.Println("Gateway handler closed")
+	zap.S().Debugln("Gateway handler exiting")
 }

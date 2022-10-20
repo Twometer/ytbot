@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gorilla/websocket"
-	"log"
+	"go.uber.org/zap"
 	"sync"
 	"time"
 )
 
 type WsEvent = int
 
+//goland:noinspection ALL
 const (
 	WsEventOpen  = 1
 	WsEventClose = 2
@@ -49,7 +50,7 @@ func OpenWebSocket(url string, name string, autoReconnect bool) (*WebSocket, err
 }
 
 func (ws *WebSocket) connect() error {
-	log.Println(ws.Name + ": Dialing...")
+	zap.S().Debugw("Dialing WebSocket", "name", ws.Name, "url", ws.Url)
 	conn, _, err := websocket.DefaultDialer.Dial(ws.Url, nil)
 	if err != nil {
 		return err
@@ -70,7 +71,7 @@ func (ws *WebSocket) connect() error {
 
 func (ws *WebSocket) Send(opcode int, data interface{}) {
 	if ws.closed {
-		log.Println(ws.Name + ": attempt to send on closed WebSocket")
+		zap.S().Warnw("Attempted to send on closed WebSocket", "name", ws.Name)
 		return
 	}
 
@@ -98,7 +99,7 @@ func (ws *WebSocket) Close() {
 	defer ws.closeMutex.Unlock()
 
 	if ws.closed {
-		log.Println(ws.Name + ": WebSocket is already closed")
+		zap.S().Warnw("Attempted to close WebSocket twice", "name", ws.Name)
 		return
 	}
 
@@ -114,7 +115,7 @@ func (ws *WebSocket) Close() {
 
 	err := ws.conn.Close()
 	if err != nil {
-		log.Println(ws.Name+": Failed to close WebSocket gracefully:", err)
+		zap.S().Warnw("Failed to close WebSocket gracefully", "name", ws.Name, "error", err)
 	}
 }
 
@@ -128,7 +129,7 @@ func (ws *WebSocket) sendMessage(msg WsMessageOut) error {
 		if ws.closed {
 			return errors.New(ws.Name + ": WebSocket was closed")
 		} else {
-			log.Println(ws.Name+": failed to write WebSocket message:", err)
+			zap.S().Errorw("Failed to write WebSocket message", "name", ws.Name, "error", err)
 			ws.Events <- WsEventError
 		}
 	}
@@ -136,7 +137,7 @@ func (ws *WebSocket) sendMessage(msg WsMessageOut) error {
 }
 
 func (ws *WebSocket) runSendLoop() {
-	//defer log.Println("WS send loop terminated")
+	defer zap.S().Debugln("WebSocket sending loop exited")
 	for {
 		var err error = nil
 		if ws.heartbeat != nil {
@@ -158,7 +159,7 @@ func (ws *WebSocket) runSendLoop() {
 		}
 
 		if err != nil {
-			log.Println(ws.Name+": Send loop encountered an error an exited:", err)
+			zap.S().Errorw("Send loop encountered an error. Exiting.", "name", ws.Name, "error", err)
 			return
 		}
 	}
@@ -167,7 +168,7 @@ func (ws *WebSocket) runSendLoop() {
 func (ws *WebSocket) runReceiveLoop() {
 	defer func() {
 		if !ws.closed && ws.autoReconnect {
-			log.Println(ws.Name + ": disconnected unexpectedly, reconnecting in 5 seconds...")
+			zap.S().Warnw("Connection closed unexpectedly. Reconnecting after 5 seconds.", "name", ws.Name)
 			go func() {
 				time.Sleep(5 * time.Second)
 				ws.Reconnect()
@@ -177,26 +178,27 @@ func (ws *WebSocket) runReceiveLoop() {
 	for {
 		msgType, data, err := ws.conn.ReadMessage()
 		if ws.closed {
-			log.Println(ws.Name + ": stopped receive loop after close")
+			zap.S().Debugw("WebSocket closed, receive loop is stopping.", "name", ws.Name)
 			return
 		}
 		if err != nil {
-			log.Println(ws.Name+": failed to read WebSocket message:", err)
+			zap.S().Errorw("Failed to read from WebSocket", "name", ws.Name, "error", err)
 			ws.Events <- WsEventError
 			return
 		}
 
 		if msgType != websocket.TextMessage {
-			log.Fatalln(ws.Name + ": received a non-text message from WebSocket")
+			zap.S().Errorw("Received non-text message from WebSocket", "name", ws.Name, "messageType", msgType)
+			continue
 		}
 
 		var message WsMessageIn
 		err = json.Unmarshal(data, &message)
 
 		if err != nil {
-			log.Println(ws.Name+": failed to decode JSON:", err)
+			zap.S().Errorw("Failed to decode JSON message", "name", ws.Name, "error", err)
 			ws.Events <- WsEventError
-			return
+			continue
 		}
 
 		ws.MessagesIn <- message
@@ -207,7 +209,7 @@ func (ws *WebSocket) Reconnect() {
 	ws.Close()
 	err := ws.connect()
 	if err != nil {
-		log.Println(ws.Name + ": Failed to reconnect.")
+		zap.S().Errorw("Failed to reconnect WebSocket", "name", ws.Name, "error", err)
 		return
 	}
 

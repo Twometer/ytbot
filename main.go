@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"go.uber.org/zap"
 	"ytbot/config"
 	"ytbot/core"
 	"ytbot/discord"
@@ -9,17 +9,23 @@ import (
 )
 
 func main() {
-	log.Println(">> Starting YTBot <<")
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	logger, _ := zap.NewDevelopment()
+	zap.ReplaceGlobals(logger)
+
+	zap.S().Infoln("Starting YTBot")
 
 	err := ytdlp.EnsurePresent()
 	if err != nil {
-		log.Fatalln("failed to ensure valid yt-dlp:", err)
+		zap.S().Fatalw("Failed to ensure a valid yt-dlp is present",
+			"error", err,
+		)
 	}
 
 	err = ytdlp.CheckForUpdates()
 	if err != nil {
-		log.Fatalln("failed to check for yt-dlp updates:", err)
+		zap.S().Fatalw("Failed to check for yt-dlp updates",
+			"error", err,
+		)
 	}
 
 	discordClient := discord.NewClient(config.GetString(config.KeyAuthToken), '.')
@@ -28,11 +34,15 @@ func main() {
 	discordClient.AddIntent(discord.IntentMessages)
 	discordClient.AddIntent(discord.IntentMessageContent)
 
+	zap.S().Debugln("Starting Discord client")
 	err = discordClient.Start()
 	if err != nil {
-		log.Fatalln("failed to start Discord client:", err)
+		zap.S().Fatalw("Failed to start Discord client",
+			"error", err,
+		)
 	}
 
+	zap.S().Debugln("Starting command handler")
 	for cmd := range discordClient.Commands {
 		core.HandleCommand(cmd, discordClient)
 	}

@@ -1,8 +1,8 @@
 package codec
 
 import (
+	"go.uber.org/zap"
 	"io"
-	"log"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -44,7 +44,7 @@ func (ffmpeg *Ffmpeg) Start() error {
 func (ffmpeg *Ffmpeg) Stop() {
 	err := ffmpeg.Command.Process.Kill()
 	if err != nil {
-		log.Println("Could not stop ffmpeg (already dead?):", err)
+		zap.S().Warnw("Failed to stop ffmpeg process, could already be dead.", "error", err)
 	}
 }
 

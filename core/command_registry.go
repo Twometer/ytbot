@@ -1,7 +1,7 @@
 package core
 
 import (
-	"log"
+	"go.uber.org/zap"
 	"strings"
 	"ytbot/discord"
 )
@@ -17,7 +17,7 @@ func RegisterCommand(name string, handler CommandHandler) {
 func HandleCommand(cmd discord.CommandBuffer, client *discord.Client) {
 	name := cmd.GetString()
 	handler, ok := commands[strings.ToLower(name)]
-	log.Println("Handling command " + name)
+	zap.S().Infow("Handling incoming command", "name", name)
 	if ok {
 		handler(cmd, client)
 	} else {

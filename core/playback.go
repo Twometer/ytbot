@@ -1,7 +1,7 @@
 package core
 
 import (
-	"log"
+	"go.uber.org/zap"
 	"ytbot/codec"
 	"ytbot/discord"
 	"ytbot/ytdlp"
@@ -10,7 +10,7 @@ import (
 func playNext(cmd discord.CommandBuffer, client *discord.Client, guildId string, channelId string) {
 	state := GetBotState(cmd.Message)
 	if len(state.Queue) == 0 {
-		log.Println("Playback queue is empty, exiting")
+		zap.S().Debugln("Playback queue is empty, exiting from playNext()")
 		return
 	}
 
@@ -19,18 +19,18 @@ func playNext(cmd discord.CommandBuffer, client *discord.Client, guildId string,
 
 	statusMsg := client.ReplyMessage(cmd.Message, EmojiLoading+"Preparing to play `"+nextSong.Name+"`...")
 
-	log.Println("Fetching youtube url for", nextSong.Name+"...")
+	zap.S().Debugw("Fetching YouTube streaming URL", "mediaName", nextSong.Name, "mediaUrl", nextSong.Url)
 	url, err := ytdlp.GetStreamUrl(nextSong.Url)
 	if err != nil {
-		log.Println("Failed to get YouTube stream url:", err)
+		zap.S().Errorw("Failed to get YouTube streaming URL", "mediaName", nextSong.Name, "error", err)
 		client.EditMessage(statusMsg, EmojiFailed+"Failed to get YouTube stream URL")
 		return
 	}
 
-	log.Println("Starting Discord playback...")
+	zap.S().Debugln("Joining voice channel")
 	voiceClient, err := client.JoinVoiceChannel(guildId, channelId)
 	if err != nil {
-		log.Println("Failed to join voice channel:", err)
+		zap.S().Errorw("Failed to join voice channel", "guildId", guildId, "channelId", channelId, "error", err)
 		client.EditMessage(statusMsg, EmojiFailed+"Failed to join voice channel")
 		return
 	}
@@ -38,16 +38,16 @@ func playNext(cmd discord.CommandBuffer, client *discord.Client, guildId string,
 	if voiceClient.IsPlaying() {
 		if state.Encoder != nil {
 			state.Encoder.Stop()
-			log.Println("Current audio encoder stopped")
+			zap.S().Debugln("Current audio encoder stopped to make space for new playback")
 		} else {
-			log.Println("Error: Voice client is playing but encoder is not present")
+			zap.S().Errorln("Failed to stop playback because voice client is playing, but encoder was not found")
 			client.EditMessage(statusMsg, EmojiFailed+"Failed to stop current playback")
 			return
 		}
 	}
 
 	if !voiceClient.IsReady() {
-		log.Println("Waiting for voice client to become ready...")
+		zap.S().Debugln("Waiting for voice client to become ready")
 		for event := range voiceClient.Events {
 			if event == discord.VoiceEventReady {
 				break
@@ -55,32 +55,32 @@ func playNext(cmd discord.CommandBuffer, client *discord.Client, guildId string,
 		}
 	}
 
-	log.Println("Starting encoder...")
+	zap.S().Debugw("Starting encoder for a media item", "mediaName", nextSong.Name)
 	state.Encoder = codec.NewEncoder(url, voiceClient.VoiceStream)
 	err = state.Encoder.Start()
 	if err != nil {
-		log.Println("Failed to start encoder:", err)
+		zap.S().Errorw("Failed to start encoder for a media item", "mediaName", nextSong.Name)
 		client.EditMessage(statusMsg, EmojiFailed+"Failed to start audio stream")
 		return
 	}
 
 	client.EditMessage(statusMsg, EmojiPlay+"Now playing: `"+nextSong.Name+"`.")
-	log.Println("New song started playing (hopefully)")
+	zap.S().Infow("A new media item started playing", "guildId", guildId, "mediaName", nextSong.Name)
 
 	go func() {
-		log.Println("Waiting for current playback to finish ...")
+		zap.S().Debugln("Waiting for playback to finish")
 		for event := range voiceClient.Events {
 			if event == discord.VoiceEventFinished {
-				log.Println("Playback finished gracefully, starting next one")
+				zap.S().Debugln("Playback finished gracefully, starting next one")
 				go playNext(cmd, client, guildId, channelId)
 				return
 			} else if event == discord.VoiceEventError {
-				log.Println("Playback finished with error, sending error message")
+				zap.S().Warnw("Playback finished with error, sending error message", "mediaName", nextSong.Name)
 				client.ReplyMessage(statusMsg, EmojiFailed+"Something went wrong during playback")
 				client.LeaveVoiceChannel(cmd.Message.GuildId)
 				return
 			} else if event == discord.VoiceEventStopped {
-				log.Println("Playback was stopped")
+				zap.S().Debugln("Playback was stopped, not starting next one")
 				return
 			}
 		}

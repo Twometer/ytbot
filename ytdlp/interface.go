@@ -2,27 +2,32 @@ package ytdlp
 
 import (
 	"errors"
-	"log"
+	"go.uber.org/zap"
 	"net/url"
 	"os/exec"
 	"strings"
 )
 
 func CheckForUpdates() error {
-	res, err := runYtdl("-U")
+	prevVer, err := GetVersion()
 	if err != nil {
 		return err
 	}
 
-	ver, err := GetVersion()
+	_, err = runYtdl("-U")
 	if err != nil {
 		return err
 	}
 
-	if strings.Contains(res, "is up to date") {
-		log.Printf("yt-dlp is up to date with version %s\n", ver)
+	curVer, err := GetVersion()
+	if err != nil {
+		return err
+	}
+
+	if curVer == prevVer {
+		zap.S().Infow("yt-dlp is at the latest version", "version", curVer)
 	} else {
-		log.Printf("yt-dlp was updated to version %s\n", ver)
+		zap.S().Infow("yt-dlp was updated to a new version", "curVer", curVer, "prevVer", prevVer)
 	}
 
 	return nil
@@ -59,7 +64,7 @@ func GetStreamUrl(ytUrl string) (string, error) {
 			}
 		}
 
-		log.Println("warn: no audio url found, returning best effort url")
+		zap.S().Warnw("No download URL with audio mimetype was found, returning best effort.", "urlCandidates", validUrls)
 		return validUrls[0].String(), nil
 	}
 }

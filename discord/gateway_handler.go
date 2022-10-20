@@ -1,7 +1,7 @@
 package discord
 
 import (
-	"log"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -21,9 +21,9 @@ func (client *Client) handleMessage(in WsMessageIn) {
 			return WsMessageOut{Opcode: GatewayOpHeartbeat, Data: client.sequence}
 		})
 	case GatewayOpInvalidSession:
-		log.Fatalln("gateway client session is invalid")
+		zap.S().Fatalln("The session is invalid")
 	case GatewayOpReconnect:
-		log.Println("Reconnect requested by gateway")
+		zap.S().Debugln("A reconnect was requested by the gateway")
 		client.ws.Reconnect()
 	}
 }
@@ -33,7 +33,7 @@ func (client *Client) handleEvent(in WsMessageIn) {
 	case GatewayEventReady:
 		var message GatewayReadyMessage
 		in.Unmarshal(&message)
-		log.Printf("Logged in as %s#%s\n", message.User.Username, message.User.Discriminator)
+		zap.S().Infof("Logged in as %s#%s", message.User.Username, message.User.Discriminator)
 		client.userId = message.User.Id
 	case GatewayEventGuildCreate:
 		var message GatewayGuildCreateMessage
@@ -70,6 +70,6 @@ func (client *Client) handleEvent(in WsMessageIn) {
 
 		client.VoiceServers <- voiceServer
 	default:
-		log.Println("Unhandled gateway event:", in.String())
+		zap.S().Debugw("Unhandled gateway event", "event", in.String())
 	}
 }

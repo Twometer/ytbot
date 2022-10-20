@@ -2,8 +2,8 @@ package discord
 
 import (
 	"errors"
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
-	"log"
 )
 
 const preferredEncryptionMode = "xsalsa20_poly1305"
@@ -51,7 +51,7 @@ func (vc *VoiceClient) IsReady() bool {
 }
 
 func (vc *VoiceClient) handlerLoop() {
-	//defer log.Println("Voice handler loop terminated")
+	defer zap.S().Debugln("Voice handler loop exited")
 	for {
 		select {
 		case msg := <-vc.ws.MessagesIn:
@@ -66,7 +66,7 @@ func (vc *VoiceClient) handlerLoop() {
 }
 
 func (vc *VoiceClient) createVoiceStream(msg VoiceReadyMessage) error {
-	log.Println("Connected to voice gateway, initializing voice stream...")
+	zap.S().Debugln("Connected to voice gateway. Initializing voice stream")
 
 	if !slices.Contains(msg.Modes, preferredEncryptionMode) {
 		return errors.New("remote does not support preferred encryption mode: " + preferredEncryptionMode)
