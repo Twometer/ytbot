@@ -83,16 +83,21 @@ func StopCommand(cmd discord.CommandBuffer, client *discord.Client) {
 }
 
 func MoveCommand(cmd discord.CommandBuffer, client *discord.Client) {
-	oldIdx := cmd.GetInt() - 1
-	newIdx := cmd.GetInt() - 1
+	oldIdx := cmd.GetIntOrDefault(-1) - 1
+	newIdx := cmd.GetIntOrDefault(-1) - 1
 
 	botState := GetBotState(cmd.Message)
+
+	if oldIdx < 0 || oldIdx >= len(botState.Queue) || newIdx < 0 || newIdx >= len(botState.Queue) {
+		client.ReplyMessage(cmd.Message, EmojiFailed+"There is no item at that position")
+		return
+	}
 
 	newQueue := make([]ytapi.MediaItem, 0)
 	newQueue = append(newQueue, botState.Queue[:newIdx]...)
 	newQueue = append(newQueue, botState.Queue[oldIdx])
 	newQueue = append(newQueue, botState.Queue[newIdx:oldIdx]...)
-	newQueue = append(newQueue, botState.Queue[oldIdx:]...)
+	newQueue = append(newQueue, botState.Queue[oldIdx+1:]...)
 
 	botState.Queue = newQueue
 
