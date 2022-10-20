@@ -30,7 +30,7 @@ func NewVoiceClient(userId string, sessionId string, server VoiceServer) *VoiceC
 }
 
 func (vc *VoiceClient) start() error {
-	ws, err := OpenWebSocket("wss://" + vc.server.Endpoint + "?v=4")
+	ws, err := OpenWebSocket("wss://"+vc.server.Endpoint+"?v=4", "Voice", false)
 	if err != nil {
 		return err
 	}

@@ -143,6 +143,7 @@ func playNext(cmd discord.CommandBuffer, client *discord.Client, guildId string,
 			} else if event == discord.VoiceEventError {
 				log.Println("Playback finished with error, sending error message")
 				client.ReplyMessage(statusMsg, EmojiFailed+"Something went wrong during playback")
+				client.LeaveVoiceChannel(cmd.Message.GuildId)
 				return
 			} else if event == discord.VoiceEventStopped {
 				log.Println("Playback was stopped")

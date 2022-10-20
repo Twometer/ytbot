@@ -42,14 +42,17 @@ func (client *Client) AddIntent(intent Intent) {
 func (client *Client) Start() error {
 	log.Println("Connecting to Discord...")
 
-	ws, err := OpenWebSocket(gatewayUrl)
+	ws, err := OpenWebSocket(gatewayUrl, "Gateway", true)
 	if err != nil {
 		return err
 	}
 	client.ws = ws
 
-	client.sendIdentify()
-	go client.handlerLoop()
+	ws.ReconnectFunc = func() {
+		client.sendIdentify()
+		go client.handlerLoop()
+	}
+	ws.ReconnectFunc()
 
 	return nil
 }
@@ -172,5 +175,5 @@ func (client *Client) handlerLoop() {
 	for message := range client.ws.MessagesIn {
 		client.handleMessage(message)
 	}
-	log.Println("Gateway handler was stopped")
+	log.Println("Gateway handler closed")
 }

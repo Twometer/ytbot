@@ -17,7 +17,10 @@ func (client *Client) handleMessage(in WsMessageIn) {
 			return WsMessageOut{Opcode: GatewayOpHeartbeat, Data: client.sequence}
 		})
 	case GatewayOpInvalidSession:
-		log.Fatalln("gateway client session was invalidated")
+		log.Fatalln("gateway client session is invalid")
+	case GatewayOpReconnect:
+		log.Println("Reconnect requested by gateway")
+		client.ws.Reconnect()
 	}
 }
 
@@ -52,6 +55,7 @@ func (client *Client) handleEvent(in WsMessageIn) {
 		var message Message
 		in.Unmarshal(&message)
 
+		log.Println("received a message")
 		if len(message.Content) > 0 && message.Content[0] == client.cmdPrefix {
 			client.Commands <- NewCommandBuffer(message)
 		}
