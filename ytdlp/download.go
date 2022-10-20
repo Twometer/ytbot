@@ -12,7 +12,7 @@ func EnsurePresent() error {
 	zap.S().Debugln("Checking if yt-dlp is present")
 
 	downloadPath := getExecutablePath()
-	zap.S().Debugln("Path for yt-dlp was loaded", "path", downloadPath)
+	zap.S().Debugw("Path for yt-dlp was loaded", "path", downloadPath)
 
 	_, err := os.Stat(downloadPath)
 	if errors.Is(err, os.ErrNotExist) {
@@ -33,7 +33,7 @@ func EnsurePresent() error {
 
 func download(path string) error {
 	downloadUrl := getExecutableUrl()
-	zap.S().Infoln("Downloading yt-dlp executable", "downloadUrl", downloadUrl)
+	zap.S().Infow("Downloading yt-dlp executable", "downloadUrl", downloadUrl)
 
 	out, err := os.Create(path)
 	if err != nil {
