@@ -24,6 +24,19 @@ func (buf *CommandBuffer) GetInt() int {
 	return i
 }
 
+func (buf *CommandBuffer) GetIntOrDefault(defaultVal int) int {
+	if buf.index >= len(buf.parts) {
+		return defaultVal
+	}
+	i, err := strconv.Atoi(buf.parts[buf.index])
+	buf.index++
+
+	if err != nil {
+		return defaultVal
+	}
+	return i
+}
+
 func (buf *CommandBuffer) GetString() string {
 	str := buf.parts[buf.index]
 	buf.index++

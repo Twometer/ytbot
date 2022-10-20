@@ -120,17 +120,27 @@ func RemoveCommand(cmd discord.CommandBuffer, client *discord.Client) {
 
 func QueueCommand(cmd discord.CommandBuffer, client *discord.Client) {
 	queue := GetBotState(cmd.Message).Queue
+	pageIdx := cmd.GetIntOrDefault(1) - 1
+	offset := pageIdx * 10
 
 	if len(queue) == 0 {
 		client.ReplyMessage(cmd.Message, EmojiNeutral+"The queue is empty")
 	} else {
 		var lines []string
 
-		for idx, item := range queue {
-			lines = append(lines, "**#"+strconv.Itoa(idx+1)+"**: `"+item.Name+"`")
+		rangeMin := max(offset, 0)
+		rangeMax := min(offset+10, len(queue))
+
+		if rangeMax <= 0 || rangeMin >= len(queue) {
+			client.ReplyMessage(cmd.Message, EmojiFailed+"There is no page "+strconv.Itoa(pageIdx+1))
+			return
 		}
 
-		client.ReplyMessage(cmd.Message, "__**Playback queue:**__\n"+strings.Join(lines, "\n"))
+		for idx, item := range queue[rangeMin:rangeMax] {
+			lines = append(lines, "**#"+strconv.Itoa(idx+1+offset)+"**: `"+item.Name+"`")
+		}
+
+		client.ReplyMessage(cmd.Message, "__Playback queue (page "+strconv.Itoa(pageIdx+1)+")__\n"+strings.Join(lines, "\n"))
 	}
 
 }
