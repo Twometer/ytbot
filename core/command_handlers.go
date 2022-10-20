@@ -33,7 +33,7 @@ func PlayCommand(cmd discord.CommandBuffer, client *discord.Client) {
 
 	statusMsg := client.ReplyMessage(cmd.Message, EmojiLoading+"Searching...")
 
-	query := strings.ToLower(strings.TrimSpace(cmd.GetStringAll()))
+	query := strings.TrimSpace(cmd.GetStringAll())
 	if len(query) == 0 {
 		client.EditMessage(statusMsg, EmojiFailed+"A search query or YouTube link is required")
 		return
