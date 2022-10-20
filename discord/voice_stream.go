@@ -35,18 +35,18 @@ func NewVoiceStream(parent *VoiceClient, ip string, port int, ssrc uint32) *Voic
 	}
 }
 
-func (vc *VoiceStream) BeginSetup() error {
+func (stream *VoiceStream) BeginSetup() error {
 	addr := net.UDPAddr{
-		Port: vc.RemotePort,
-		IP:   net.ParseIP(vc.RemoteIp),
+		Port: stream.RemotePort,
+		IP:   net.ParseIP(stream.RemoteIp),
 	}
 	conn, err := net.DialUDP("udp", nil, &addr)
 	if err != nil {
 		return err
 	}
-	vc.conn = conn
+	stream.conn = conn
 
-	err = vc.discoverLocalIp()
+	err = stream.discoverLocalIp()
 	if err != nil {
 		return err
 	}
@@ -54,62 +54,62 @@ func (vc *VoiceStream) BeginSetup() error {
 	return nil
 }
 
-func (vc *VoiceStream) FinishSetup(key []byte) {
-	vc.key = key
+func (stream *VoiceStream) FinishSetup(key []byte) {
+	stream.key = key
 	log.Println("Voice streaming connection established!")
 }
 
-func (vc *VoiceStream) SendOpusFrame(timestamp uint32, frame []byte) error {
-	if vc.key == nil {
+func (stream *VoiceStream) SendOpusFrame(timestamp uint32, frame []byte) error {
+	if stream.key == nil {
 		return errors.New("voice stream is not initialized")
 	}
 
-	sequence := vc.nextSequence()
+	sequence := stream.nextSequence()
 	packetBuffer := bytes.NewBuffer(make([]byte, 0))
 
-	// Discord Header
+	// RTP Header
 	_ = binary.Write(packetBuffer, binary.BigEndian, uint8(0x80))
 	_ = binary.Write(packetBuffer, binary.BigEndian, uint8(0x78))
 	_ = binary.Write(packetBuffer, binary.BigEndian, sequence)
 	_ = binary.Write(packetBuffer, binary.BigEndian, timestamp)
-	_ = binary.Write(packetBuffer, binary.BigEndian, vc.Ssrc)
+	_ = binary.Write(packetBuffer, binary.BigEndian, stream.Ssrc)
 
 	// Encrypted audio data
-	encryptedFrame := vc.encryptAudio(frame, packetBuffer.Bytes()[:12])
+	encryptedFrame := stream.encryptAudio(frame, packetBuffer.Bytes()[:12])
 	packetBuffer.Write(encryptedFrame)
 
 	// Send
-	_, err := vc.conn.Write(packetBuffer.Bytes())
+	_, err := stream.conn.Write(packetBuffer.Bytes())
 	return err
 }
 
-func (vc *VoiceStream) OnBegin() {
-	vc.parent.Events <- VoiceEventPlaying
-	vc.parent.sendSpeaking(true)
-	vc.playing = true
+func (stream *VoiceStream) OnBegin() {
+	stream.parent.Events <- VoiceEventPlaying
+	stream.parent.sendSpeaking(true)
+	stream.playing = true
 }
 
-func (vc *VoiceStream) OnFinished() {
-	vc.parent.Events <- VoiceEventFinished
-	vc.parent.sendSpeaking(false)
-	vc.playing = false
+func (stream *VoiceStream) OnFinished() {
+	stream.parent.Events <- VoiceEventFinished
+	stream.parent.sendSpeaking(false)
+	stream.playing = false
 }
 
-func (vc *VoiceStream) OnStopped() {
-	vc.parent.Events <- VoiceEventStopped
-	vc.parent.sendSpeaking(false)
-	vc.playing = false
+func (stream *VoiceStream) OnStopped() {
+	stream.parent.Events <- VoiceEventStopped
+	stream.parent.sendSpeaking(false)
+	stream.playing = false
 }
 
-func (vc *VoiceStream) OnFailed() {
-	vc.parent.Events <- VoiceEventError
-	vc.parent.sendSpeaking(false)
-	vc.playing = false
+func (stream *VoiceStream) OnFailed() {
+	stream.parent.Events <- VoiceEventError
+	stream.parent.sendSpeaking(false)
+	stream.playing = false
 }
 
-func (vc *VoiceStream) encryptAudio(audioFrame []byte, nonceBytes []byte) []byte {
+func (stream *VoiceStream) encryptAudio(audioFrame []byte, nonceBytes []byte) []byte {
 	var secretKey [32]byte
-	copy(secretKey[:], vc.key)
+	copy(secretKey[:], stream.key)
 
 	var nonce [24]byte
 	copy(nonce[:12], nonceBytes)
@@ -118,26 +118,26 @@ func (vc *VoiceStream) encryptAudio(audioFrame []byte, nonceBytes []byte) []byte
 	return encryptedFrame
 }
 
-func (vc *VoiceStream) nextSequence() uint16 {
-	vc.sequence++
-	return vc.sequence
+func (stream *VoiceStream) nextSequence() uint16 {
+	stream.sequence++
+	return stream.sequence
 }
 
-func (vc *VoiceStream) discoverLocalIp() error {
+func (stream *VoiceStream) discoverLocalIp() error {
 	reqBuf := bytes.NewBuffer(make([]byte, 0))
 	_ = binary.Write(reqBuf, binary.BigEndian, uint16(1))
 	_ = binary.Write(reqBuf, binary.BigEndian, uint16(70))
-	_ = binary.Write(reqBuf, binary.BigEndian, vc.Ssrc)
+	_ = binary.Write(reqBuf, binary.BigEndian, stream.Ssrc)
 	reqBuf.Write(make([]byte, 64))
-	_ = binary.Write(reqBuf, binary.BigEndian, uint16(vc.RemotePort))
+	_ = binary.Write(reqBuf, binary.BigEndian, uint16(stream.RemotePort))
 
-	_, err := vc.conn.Write(reqBuf.Bytes())
+	_, err := stream.conn.Write(reqBuf.Bytes())
 	if err != nil {
 		return err
 	}
 
 	respData := make([]byte, 74)
-	_, _, err = vc.conn.ReadFromUDP(respData)
+	_, _, err = stream.conn.ReadFromUDP(respData)
 	if err != nil {
 		return err
 	}
@@ -158,20 +158,20 @@ func (vc *VoiceStream) discoverLocalIp() error {
 	respBuf.Next(64 - len(ip))
 	_ = binary.Read(respBuf, binary.BigEndian, &resp.port)
 
-	vc.LocalIp = resp.ip
-	vc.LocalPort = int(resp.port)
+	stream.LocalIp = resp.ip
+	stream.LocalPort = int(resp.port)
 
 	log.Printf("IP Discovery completed: %s:%d\n", resp.ip, resp.port)
 
 	return nil
 }
 
-func (vc *VoiceStream) Close() {
-	if vc.conn == nil {
+func (stream *VoiceStream) Close() {
+	if stream.conn == nil {
 		return
 	}
 
-	err := vc.conn.Close()
+	err := stream.conn.Close()
 	if err != nil {
 		log.Println("Could not gracefully shut down voice stream:", err)
 	}
