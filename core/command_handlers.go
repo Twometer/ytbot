@@ -17,6 +17,7 @@ func init() {
 	RegisterCommand("move", MoveCommand)
 	RegisterCommand("clear", ClearCommand)
 	RegisterCommand("remove", RemoveCommand)
+	RegisterCommand("queue", QueueCommand)
 }
 
 func PingCommand(cmd discord.CommandBuffer, client *discord.Client) {
@@ -115,4 +116,21 @@ func RemoveCommand(cmd discord.CommandBuffer, client *discord.Client) {
 
 	botState.Queue = append(botState.Queue[:index], botState.Queue[index+1:]...)
 	client.ReplyMessage(cmd.Message, EmojiSuccess+"Item `"+item.Name+"` at position #"+strconv.Itoa(index+1)+" was removed.")
+}
+
+func QueueCommand(cmd discord.CommandBuffer, client *discord.Client) {
+	queue := GetBotState(cmd.Message).Queue
+
+	if len(queue) == 0 {
+		client.ReplyMessage(cmd.Message, EmojiNeutral+"The queue is empty")
+	} else {
+		var lines []string
+
+		for idx, item := range queue {
+			lines = append(lines, "**#"+strconv.Itoa(idx+1)+"**: `"+item.Name+"`")
+		}
+
+		client.ReplyMessage(cmd.Message, "__**Playback queue:**__\n"+strings.Join(lines, "\n"))
+	}
+
 }
